@@ -1,8 +1,0 @@
-{
-  "memosApiUrl": "https://memos.leolee.top:5001/api/v1",
-  "memosAccessToken": "eyJhbGciOiJIUzI1NiIsImtpZCI6InYxIiwidHlwIjoiSldUIn0.eyJuYW1lIjoibGVvbGVlIiwiaXNzIjoibWVtb3MiLCJzdWIiOiIyIiwiYXVkIjpbInVzZXIuYWNjZXNzLXRva2VuIl0sImlhdCI6MTczMzI4MzI4OH0.OWvp1R-I0BD__jS5pOX7UWKzltjz_gk3CqaIJO1zF0I",
-  "syncDirectory": "memos",
-  "syncFrequency": "auto",
-  "autoSyncInterval": 30,
-  "syncLimit": 1000
-}
