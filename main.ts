@@ -150,6 +150,20 @@ export default class MemosSyncPlugin extends Plugin {
         }
     }
 
+    private formatDateTime(date: Date, format: 'filename' | 'display' = 'display'): string {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+
+        if (format === 'filename') {
+            return `${year}-${month}-${day} ${hours}-${minutes}`;
+        }
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+
     private sanitizeFileName(fileName: string): string {
         // 移除或替换不安全的字符
         return fileName
@@ -231,55 +245,58 @@ export default class MemosSyncPlugin extends Plugin {
         const date = new Date(memo.createTime);
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
-
+        
         const yearDir = `${this.settings.syncDirectory}/${year}`;
         const monthDir = `${yearDir}/${month}`;
-
+        
         await this.ensureDirectoryExists(yearDir);
         await this.ensureDirectoryExists(monthDir);
-
-        const timeStr = date.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const contentPreview = memo.content
-            ? this.sanitizeFileName(memo.content.slice(0, 20))
+        
+        // 优化文件名格式：内容在前，时间在后
+        const contentPreview = memo.content 
+            ? this.sanitizeFileName(memo.content.slice(0, 50))  // 增加预览长度到50字符
             : this.sanitizeFileName(memo.name.replace('memos/', ''));
-
-        const fileName = this.sanitizeFileName(`${timeStr} ${contentPreview}.md`);
+        
+        const timeStr = this.formatDateTime(date, 'filename');
+        const fileName = this.sanitizeFileName(`${contentPreview} (${timeStr}).md`);
         const filePath = `${monthDir}/${fileName}`;
-
+        
         let content = memo.content || '';
-
+        
         // 处理标签：将 #tag# 格式转换为 #tag
         content = content.replace(/\#([^\#\s]+)\#/g, '#$1');
+        
+        // 构建文档内容，正文优先
+        let documentContent = content;
 
+        // 添加资源
         if (memo.resources && memo.resources.length > 0) {
             // 分别处理图片和其他附件
             const images = memo.resources.filter(r => this.isImageFile(r.filename));
             const otherFiles = memo.resources.filter(r => !this.isImageFile(r.filename));
 
-            // 先下载并显示图片
+            // 先添加图片
             if (images.length > 0) {
-                content += '\n\n';
+                documentContent += '\n\n';
                 for (const image of images) {
                     const localPath = await this.downloadResource(image, monthDir);
                     if (localPath) {
-                        // 确保路径是相对于文件的
                         const relativePath = this.getRelativePath(filePath, localPath);
-                        content += `![${image.filename}](${relativePath})\n`;
+                        documentContent += `![${image.filename}](${relativePath})\n`;
                     } else {
                         console.error(`Failed to download image: ${image.filename}`);
                     }
                 }
             }
 
-            // 再显示其他附件
+            // 再添加其他附件
             if (otherFiles.length > 0) {
-                content += '\n\n### Attachments\n';
+                documentContent += '\n\n### Attachments\n';
                 for (const file of otherFiles) {
                     const localPath = await this.downloadResource(file, monthDir);
                     if (localPath) {
-                        // 确保路径是相对于文件的
                         const relativePath = this.getRelativePath(filePath, localPath);
-                        content += `- [${file.filename}](${relativePath})\n`;
+                        documentContent += `- [${file.filename}](${relativePath})\n`;
                     } else {
                         console.error(`Failed to download file: ${file.filename}`);
                     }
@@ -290,29 +307,28 @@ export default class MemosSyncPlugin extends Plugin {
         // 提取标签
         const tags = (memo.content || '').match(/\#([^\#\s]+)(?:\#|\s|$)/g) || [];
         const cleanTags = tags.map(tag => tag.replace(/^\#|\#$/g, '').trim());
-
-        const frontmatter = [
-            '---',
-            `id: ${memo.name}`,
-            `created: ${memo.createTime}`,
-            `updated: ${memo.updateTime}`,
-            `visibility: ${memo.visibility}`,
-            `type: memo`,
-            cleanTags.length > 0 ? `tags: [${cleanTags.join(', ')}]` : 'tags: []',
-            '---',
-            '',
-            content
-        ].filter(line => line !== undefined).join('\n');
+        
+        // 添加属性区域（使用 Obsidian callout，默认折叠）
+        documentContent += '\n\n---\n';
+        documentContent += '> [!note]- Memo Properties\n';
+        documentContent += `> - Created: ${this.formatDateTime(new Date(memo.createTime))}\n`;
+        documentContent += `> - Updated: ${this.formatDateTime(new Date(memo.updateTime))}\n`;
+        documentContent += '> - Type: memo\n';
+        if (cleanTags.length > 0) {
+            documentContent += `> - Tags: [${cleanTags.join(', ')}]\n`;
+        }
+        documentContent += `> - ID: ${memo.name}\n`;
+        documentContent += `> - Visibility: ${memo.visibility.toLowerCase()}\n`;
 
         try {
             const exists = await this.app.vault.adapter.exists(filePath);
             if (exists) {
                 const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
                 if (file) {
-                    await this.app.vault.modify(file, frontmatter);
+                    await this.app.vault.modify(file, documentContent);
                 }
             } else {
-                await this.app.vault.create(filePath, frontmatter);
+                await this.app.vault.create(filePath, documentContent);
             }
             console.log(`Saved memo to: ${filePath}`);
         } catch (error) {

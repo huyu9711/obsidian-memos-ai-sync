@@ -118,6 +118,18 @@ Response: ${responseText}`);
       throw error;
     }
   }
+  formatDateTime(date, format = "display") {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+    if (format === "filename") {
+      return `${year}-${month}-${day} ${hours}-${minutes}`;
+    }
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
   sanitizeFileName(fileName) {
     return fileName.replace(/[\\/:*?"<>|#]/g, "_").replace(/\s+/g, " ").trim();
   }
@@ -176,22 +188,23 @@ Response: ${responseText}`);
     const monthDir = `${yearDir}/${month}`;
     await this.ensureDirectoryExists(yearDir);
     await this.ensureDirectoryExists(monthDir);
-    const timeStr = date.toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const contentPreview = memo.content ? this.sanitizeFileName(memo.content.slice(0, 20)) : this.sanitizeFileName(memo.name.replace("memos/", ""));
-    const fileName = this.sanitizeFileName(`${timeStr} ${contentPreview}.md`);
+    const contentPreview = memo.content ? this.sanitizeFileName(memo.content.slice(0, 50)) : this.sanitizeFileName(memo.name.replace("memos/", ""));
+    const timeStr = this.formatDateTime(date, "filename");
+    const fileName = this.sanitizeFileName(`${contentPreview} (${timeStr}).md`);
     const filePath = `${monthDir}/${fileName}`;
     let content = memo.content || "";
     content = content.replace(/\#([^\#\s]+)\#/g, "#$1");
+    let documentContent = content;
     if (memo.resources && memo.resources.length > 0) {
       const images = memo.resources.filter((r) => this.isImageFile(r.filename));
       const otherFiles = memo.resources.filter((r) => !this.isImageFile(r.filename));
       if (images.length > 0) {
-        content += "\n\n";
+        documentContent += "\n\n";
         for (const image of images) {
           const localPath = await this.downloadResource(image, monthDir);
           if (localPath) {
             const relativePath = this.getRelativePath(filePath, localPath);
-            content += `![${image.filename}](${relativePath})
+            documentContent += `![${image.filename}](${relativePath})
 `;
           } else {
             console.error(`Failed to download image: ${image.filename}`);
@@ -199,12 +212,12 @@ Response: ${responseText}`);
         }
       }
       if (otherFiles.length > 0) {
-        content += "\n\n### Attachments\n";
+        documentContent += "\n\n### Attachments\n";
         for (const file of otherFiles) {
           const localPath = await this.downloadResource(file, monthDir);
           if (localPath) {
             const relativePath = this.getRelativePath(filePath, localPath);
-            content += `- [${file.filename}](${relativePath})
+            documentContent += `- [${file.filename}](${relativePath})
 `;
           } else {
             console.error(`Failed to download file: ${file.filename}`);
@@ -214,27 +227,30 @@ Response: ${responseText}`);
     }
     const tags = (memo.content || "").match(/\#([^\#\s]+)(?:\#|\s|$)/g) || [];
     const cleanTags = tags.map((tag) => tag.replace(/^\#|\#$/g, "").trim());
-    const frontmatter = [
-      "---",
-      `id: ${memo.name}`,
-      `created: ${memo.createTime}`,
-      `updated: ${memo.updateTime}`,
-      `visibility: ${memo.visibility}`,
-      `type: memo`,
-      cleanTags.length > 0 ? `tags: [${cleanTags.join(", ")}]` : "tags: []",
-      "---",
-      "",
-      content
-    ].filter((line) => line !== void 0).join("\n");
+    documentContent += "\n\n---\n";
+    documentContent += "> [!note]- Memo Properties\n";
+    documentContent += `> - Created: ${this.formatDateTime(new Date(memo.createTime))}
+`;
+    documentContent += `> - Updated: ${this.formatDateTime(new Date(memo.updateTime))}
+`;
+    documentContent += "> - Type: memo\n";
+    if (cleanTags.length > 0) {
+      documentContent += `> - Tags: [${cleanTags.join(", ")}]
+`;
+    }
+    documentContent += `> - ID: ${memo.name}
+`;
+    documentContent += `> - Visibility: ${memo.visibility.toLowerCase()}
+`;
     try {
       const exists = await this.app.vault.adapter.exists(filePath);
       if (exists) {
         const file = this.app.vault.getAbstractFileByPath(filePath);
         if (file) {
-          await this.app.vault.modify(file, frontmatter);
+          await this.app.vault.modify(file, documentContent);
         }
       } else {
-        await this.app.vault.create(filePath, frontmatter);
+        await this.app.vault.create(filePath, documentContent);
       }
       console.log(`Saved memo to: ${filePath}`);
     } catch (error) {
