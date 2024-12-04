@@ -104,7 +104,7 @@ Your memo content here...
 ## Support
 
 If you encounter any issues or have suggestions:
-1. Visit the [GitHub repository](https://github.com/leoleelxh/obsidian-memos-sync)
+1. Visit the [GitHub repository](https://github.com/leoleelxh/obsidian-memos-sync-plugin)
 2. Create an issue with detailed description
 3. Include relevant error messages and configuration
 
