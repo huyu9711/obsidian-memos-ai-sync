@@ -24,6 +24,7 @@ interface MemoItem {
 
 interface MemosResponse {
     memos: MemoItem[];
+    nextPageToken?: string;
 }
 
 interface MemosPluginSettings {
@@ -32,6 +33,7 @@ interface MemosPluginSettings {
     syncDirectory: string;
     syncFrequency: 'manual' | 'auto';
     autoSyncInterval: number;
+    syncLimit: number;
 }
 
 const DEFAULT_SETTINGS: MemosPluginSettings = {
@@ -39,7 +41,8 @@ const DEFAULT_SETTINGS: MemosPluginSettings = {
     memosAccessToken: '',
     syncDirectory: 'memos',
     syncFrequency: 'manual',
-    autoSyncInterval: 30
+    autoSyncInterval: 30,
+    syncLimit: 1000
 }
 
 export default class MemosSyncPlugin extends Plugin {
@@ -72,36 +75,71 @@ export default class MemosSyncPlugin extends Plugin {
         setInterval(() => this.syncMemos(), interval);
     }
 
-    private async fetchMemos(): Promise<MemoItem[]> {
+    private async fetchAllMemos(): Promise<MemoItem[]> {
         try {
             console.log('Fetching memos from:', this.settings.memosApiUrl);
             
-            // 获取所有 memos，按创建时间倒序排列
-            const response = await fetch(`${this.settings.memosApiUrl}/memos?limit=1000&orderBy=created_ts&orderDirection=DESC`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${this.settings.memosAccessToken}`,
-                    'Accept': 'application/json'
+            const allMemos: MemoItem[] = [];
+            let pageToken: string | undefined;
+            const pageSize = 100; // 每页获取100条记录
+            
+            // 循环获取所有页面的数据，直到达到限制或没有更多数据
+            while (allMemos.length < this.settings.syncLimit) {
+                const url = new URL(`${this.settings.memosApiUrl}/memos`);
+                url.searchParams.set('limit', pageSize.toString());
+                url.searchParams.set('offset', '0');
+                url.searchParams.set('rowStatus', 'NORMAL');
+                url.searchParams.set('orderBy', 'createdTs');
+                url.searchParams.set('orderDirection', 'DESC');
+                if (pageToken) {
+                    url.searchParams.set('pageToken', pageToken);
                 }
-            });
 
-            console.log('Response status:', response.status);
-            const responseText = await response.text();
-            console.log('Response text:', responseText);
+                console.log('Fetching page with URL:', url.toString());
+                
+                const response = await fetch(url.toString(), {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${this.settings.memosAccessToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}\nResponse: ${responseText}`);
+                console.log('Response status:', response.status);
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}\nResponse: ${responseText}`);
+                }
+
+                let data: MemosResponse;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error(`Failed to parse JSON response: ${e.message}\nResponse: ${responseText}`);
+                }
+
+                if (!data.memos || !Array.isArray(data.memos)) {
+                    throw new Error(`Invalid response format: memos array not found\nResponse: ${responseText}`);
+                }
+
+                allMemos.push(...data.memos);
+                console.log(`Fetched ${data.memos.length} memos, total: ${allMemos.length}`);
+
+                // 如果没有下一页，或者已经达到限制，就退出
+                if (!data.nextPageToken || allMemos.length >= this.settings.syncLimit) {
+                    break;
+                }
+                pageToken = data.nextPageToken;
             }
 
-            let data: MemosResponse;
-            try {
-                data = JSON.parse(responseText);
-            } catch (e) {
-                throw new Error(`Failed to parse JSON response: ${e.message}\nResponse: ${responseText}`);
-            }
+            // 如果超过限制，只返回限制数量的条目
+            const result = allMemos.slice(0, this.settings.syncLimit);
+            console.log(`Returning ${result.length} memos after applying limit`);
 
-            // 确保按创建时间倒序排序（以防 API 排序不生效）
-            return data.memos.sort((a, b) => 
+            // 确保按创建时间倒序排序
+            return result.sort((a, b) => 
                 new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
             );
         } catch (error) {
@@ -112,40 +150,49 @@ export default class MemosSyncPlugin extends Plugin {
         }
     }
 
+    private sanitizeFileName(fileName: string): string {
+        // 移除或替换不安全的字符
+        return fileName
+            .replace(/[\\/:*?"<>|#]/g, '_') // 替换 Windows 不允许的字符和 # 符号
+            .replace(/\s+/g, ' ')           // 将多个空格替换为单个空格
+            .trim();                        // 移除首尾空格
+    }
+
     private async saveMemoToFile(memo: MemoItem) {
-        // 使用创建时间作为文件名的一部分
         const date = new Date(memo.createTime);
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         
-        // 创建年月目录结构
         const yearDir = `${this.settings.syncDirectory}/${year}`;
         const monthDir = `${yearDir}/${month}`;
         
-        // 确保目录存在
         await this.ensureDirectoryExists(yearDir);
         await this.ensureDirectoryExists(monthDir);
         
-        // 使用创建时间和内容前20个字符（如果有）作为文件名
         const timeStr = date.toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const contentPreview = memo.content 
-            ? memo.content.slice(0, 20).replace(/[\\/:*?"<>|]/g, '_').trim() 
-            : memo.name.replace('memos/', '');
-        const fileName = `${timeStr} ${contentPreview}.md`;
+            ? this.sanitizeFileName(memo.content.slice(0, 20))
+            : this.sanitizeFileName(memo.name.replace('memos/', ''));
+        
+        const fileName = this.sanitizeFileName(`${timeStr} ${contentPreview}.md`);
         const filePath = `${monthDir}/${fileName}`;
         
-        // 构建 Markdown 内容
         let content = memo.content || '';
         
-        // 如果有资源文件，添加资源链接
+        // 处理标签：将 #tag# 格式转换为 #tag
+        content = content.replace(/\#([^\#\s]+)\#/g, '#$1');
+        
         if (memo.resources && memo.resources.length > 0) {
             content += '\n\n### Attachments\n';
             for (const resource of memo.resources) {
                 content += `- [${resource.filename}](${this.settings.memosApiUrl.replace('/api/v1', '')}/o/r/${resource.name})\n`;
             }
         }
+
+        // 提取标签
+        const tags = (memo.content || '').match(/\#([^\#\s]+)(?:\#|\s|$)/g) || [];
+        const cleanTags = tags.map(tag => tag.replace(/^\#|\#$/g, '').trim());
         
-        // 添加 frontmatter
         const frontmatter = [
             '---',
             `id: ${memo.name}`,
@@ -153,23 +200,25 @@ export default class MemosSyncPlugin extends Plugin {
             `updated: ${memo.updateTime}`,
             `visibility: ${memo.visibility}`,
             `type: memo`,
-            memo.tags && memo.tags.length > 0 ? `tags: [${memo.tags.join(', ')}]` : 'tags: []',
+            cleanTags.length > 0 ? `tags: [${cleanTags.join(', ')}]` : 'tags: []',
             '---',
             '',
             content
         ].filter(line => line !== undefined).join('\n');
 
-        // 检查文件是否已存在
-        const exists = await this.app.vault.adapter.exists(filePath);
-        if (exists) {
-            // 获取现有文件
-            const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
-            if (file) {
-                await this.app.vault.modify(file, frontmatter);
+        try {
+            const exists = await this.app.vault.adapter.exists(filePath);
+            if (exists) {
+                const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
+                if (file) {
+                    await this.app.vault.modify(file, frontmatter);
+                }
+            } else {
+                await this.app.vault.create(filePath, frontmatter);
             }
-        } else {
-            // 创建新文件
-            await this.app.vault.create(filePath, frontmatter);
+        } catch (error) {
+            console.error(`Failed to save memo to file: ${filePath}`, error);
+            throw new Error(`Failed to save memo: ${error.message}`);
         }
     }
 
@@ -191,14 +240,11 @@ export default class MemosSyncPlugin extends Plugin {
 
             this.displayMessage('Sync started');
 
-            // 确保同步目录存在
             await this.ensureDirectoryExists(this.settings.syncDirectory);
             
-            // 获取所有 memos
-            const memos = await this.fetchMemos();
+            const memos = await this.fetchAllMemos();
             this.displayMessage(`Found ${memos.length} memos`);
 
-            // 同步每个 memo
             let syncCount = 0;
             for (const memo of memos) {
                 await this.saveMemoToFile(memo);
@@ -236,10 +282,8 @@ class MemosSyncSettingTab extends PluginSettingTab {
                 .setPlaceholder('https://your-memos-host/api/v1')
                 .setValue(this.plugin.settings.memosApiUrl)
                 .onChange(async (value) => {
-                    // 验证并标准化 URL 格式
                     let url = value.trim();
                     if (url && !url.endsWith('/api/v1')) {
-                        // 如果 URL 末尾没有 /api/v1，自动添加
                         url = url.replace(/\/?$/, '/api/v1');
                         text.setValue(url);
                     }
@@ -267,6 +311,20 @@ class MemosSyncSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     this.plugin.settings.syncDirectory = value;
                     await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName('Sync Limit')
+            .setDesc('Maximum number of memos to sync (default: 1000)')
+            .addText(text => text
+                .setPlaceholder('1000')
+                .setValue(String(this.plugin.settings.syncLimit))
+                .onChange(async (value) => {
+                    const numValue = parseInt(value);
+                    if (!isNaN(numValue) && numValue > 0) {
+                        this.plugin.settings.syncLimit = numValue;
+                        await this.plugin.saveSettings();
+                    }
                 }));
 
         new Setting(containerEl)
