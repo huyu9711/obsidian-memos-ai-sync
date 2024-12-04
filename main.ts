@@ -78,11 +78,11 @@ export default class MemosSyncPlugin extends Plugin {
     private async fetchAllMemos(): Promise<MemoItem[]> {
         try {
             console.log('Fetching memos from:', this.settings.memosApiUrl);
-            
+
             const allMemos: MemoItem[] = [];
             let pageToken: string | undefined;
             const pageSize = 100; // 每页获取100条记录
-            
+
             // 循环获取所有页面的数据，直到达到限制或没有更多数据
             while (allMemos.length < this.settings.syncLimit) {
                 const url = new URL(`${this.settings.memosApiUrl}/memos`);
@@ -96,7 +96,7 @@ export default class MemosSyncPlugin extends Plugin {
                 }
 
                 console.log('Fetching page with URL:', url.toString());
-                
+
                 const response = await fetch(url.toString(), {
                     method: 'GET',
                     headers: {
@@ -139,7 +139,7 @@ export default class MemosSyncPlugin extends Plugin {
             console.log(`Returning ${result.length} memos after applying limit`);
 
             // 确保按创建时间倒序排序
-            return result.sort((a, b) => 
+            return result.sort((a, b) =>
                 new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
             );
         } catch (error) {
@@ -158,41 +158,139 @@ export default class MemosSyncPlugin extends Plugin {
             .trim();                        // 移除首尾空格
     }
 
+    private async downloadResource(resource: { name: string; filename: string; type?: string }, targetDir: string): Promise<string | null> {
+        try {
+            const resourceId = resource.name.split('/').pop() || resource.name;
+            const resourceUrl = `${this.settings.memosApiUrl.replace('/api/v1', '')}/file/resources/${resourceId}/${encodeURIComponent(resource.filename)}`;
+
+            // 创建资源目录
+            const resourceDir = `${targetDir}/resources`;
+            await this.ensureDirectoryExists(resourceDir);
+
+            // 生成本地文件名，避免文件名冲突
+            const localFilename = `${resourceId}_${this.sanitizeFileName(resource.filename)}`;
+            const localPath = `${resourceDir}/${localFilename}`;
+
+            // 检查文件是否已存在
+            if (await this.app.vault.adapter.exists(localPath)) {
+                console.log(`Resource already exists: ${localPath}`);
+                return localPath;
+            }
+
+            console.log(`Downloading resource: ${resourceUrl}`);
+
+            // 下载文件
+            const response = await fetch(resourceUrl, {
+                headers: {
+                    'Authorization': `Bearer ${this.settings.memosAccessToken}`
+                }
+            });
+
+            if (!response.ok) {
+                console.error(`Failed to download resource: ${response.status} ${response.statusText}`);
+                return null;
+            }
+
+            const buffer = await response.arrayBuffer();
+            await this.app.vault.adapter.writeBinary(localPath, buffer);
+            console.log(`Resource downloaded to: ${localPath}`);
+
+            return localPath;
+        } catch (error) {
+            console.error('Error downloading resource:', error);
+            return null;
+        }
+    }
+
+    private getRelativePath(fromPath: string, toPath: string): string {
+        // 将路径转换为数组
+        const fromParts = fromPath.split('/');
+        const toParts = toPath.split('/');
+
+        // 移除文件名，只保留目录路径
+        fromParts.pop();
+
+        // 找到共同的前缀
+        let i = 0;
+        while (i < fromParts.length && i < toParts.length && fromParts[i] === toParts[i]) {
+            i++;
+        }
+
+        // 构建相对路径
+        const goBack = fromParts.length - i;
+        const relativePath = [
+            ...Array(goBack).fill('..'),
+            ...toParts.slice(i)
+        ].join('/');
+
+        console.log(`Relative path from ${fromPath} to ${toPath}: ${relativePath}`);
+        return relativePath;
+    }
+
     private async saveMemoToFile(memo: MemoItem) {
         const date = new Date(memo.createTime);
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
-        
+
         const yearDir = `${this.settings.syncDirectory}/${year}`;
         const monthDir = `${yearDir}/${month}`;
-        
+
         await this.ensureDirectoryExists(yearDir);
         await this.ensureDirectoryExists(monthDir);
-        
+
         const timeStr = date.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const contentPreview = memo.content 
+        const contentPreview = memo.content
             ? this.sanitizeFileName(memo.content.slice(0, 20))
             : this.sanitizeFileName(memo.name.replace('memos/', ''));
-        
+
         const fileName = this.sanitizeFileName(`${timeStr} ${contentPreview}.md`);
         const filePath = `${monthDir}/${fileName}`;
-        
+
         let content = memo.content || '';
-        
+
         // 处理标签：将 #tag# 格式转换为 #tag
         content = content.replace(/\#([^\#\s]+)\#/g, '#$1');
-        
+
         if (memo.resources && memo.resources.length > 0) {
-            content += '\n\n### Attachments\n';
-            for (const resource of memo.resources) {
-                content += `- [${resource.filename}](${this.settings.memosApiUrl.replace('/api/v1', '')}/o/r/${resource.name})\n`;
+            // 分别处理图片和其他附件
+            const images = memo.resources.filter(r => this.isImageFile(r.filename));
+            const otherFiles = memo.resources.filter(r => !this.isImageFile(r.filename));
+
+            // 先下载并显示图片
+            if (images.length > 0) {
+                content += '\n\n';
+                for (const image of images) {
+                    const localPath = await this.downloadResource(image, monthDir);
+                    if (localPath) {
+                        // 确保路径是相对于文件的
+                        const relativePath = this.getRelativePath(filePath, localPath);
+                        content += `![${image.filename}](${relativePath})\n`;
+                    } else {
+                        console.error(`Failed to download image: ${image.filename}`);
+                    }
+                }
+            }
+
+            // 再显示其他附件
+            if (otherFiles.length > 0) {
+                content += '\n\n### Attachments\n';
+                for (const file of otherFiles) {
+                    const localPath = await this.downloadResource(file, monthDir);
+                    if (localPath) {
+                        // 确保路径是相对于文件的
+                        const relativePath = this.getRelativePath(filePath, localPath);
+                        content += `- [${file.filename}](${relativePath})\n`;
+                    } else {
+                        console.error(`Failed to download file: ${file.filename}`);
+                    }
+                }
             }
         }
 
         // 提取标签
         const tags = (memo.content || '').match(/\#([^\#\s]+)(?:\#|\s|$)/g) || [];
         const cleanTags = tags.map(tag => tag.replace(/^\#|\#$/g, '').trim());
-        
+
         const frontmatter = [
             '---',
             `id: ${memo.name}`,
@@ -216,10 +314,17 @@ export default class MemosSyncPlugin extends Plugin {
             } else {
                 await this.app.vault.create(filePath, frontmatter);
             }
+            console.log(`Saved memo to: ${filePath}`);
         } catch (error) {
             console.error(`Failed to save memo to file: ${filePath}`, error);
             throw new Error(`Failed to save memo: ${error.message}`);
         }
+    }
+
+    private isImageFile(filename: string): boolean {
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+        const ext = filename.toLowerCase().split('.').pop();
+        return ext ? imageExtensions.includes(`.${ext}`) : false;
     }
 
     private async ensureDirectoryExists(dirPath: string) {
@@ -241,7 +346,7 @@ export default class MemosSyncPlugin extends Plugin {
             this.displayMessage('Sync started');
 
             await this.ensureDirectoryExists(this.settings.syncDirectory);
-            
+
             const memos = await this.fetchAllMemos();
             this.displayMessage(`Found ${memos.length} memos`);
 
