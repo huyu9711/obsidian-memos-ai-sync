@@ -10,6 +10,11 @@ This plugin synchronizes your Memos content with Obsidian, providing a seamless 
 - Intelligent file organization by year/month structure
 - Customizable sync interval for automatic mode
 
+### Compatibility
+- Supports Memos version up to 0.16.3
+- For Memos v0.17.0 and above, please wait for future updates due to API changes
+- Recommended to use Memos v0.16.3 for best compatibility
+
 ### Content Handling
 - Clean and readable file naming: `content_preview (YYYY-MM-DD HH-mm).md`
 - Markdown content optimization

@@ -77,27 +77,38 @@ export default class MemosSyncPlugin extends Plugin {
 
     private async fetchAllMemos(): Promise<MemoItem[]> {
         try {
-            console.log('Fetching memos from:', this.settings.memosApiUrl);
+            console.log('开始获取 memos，API URL:', this.settings.memosApiUrl);
+            console.log('Access Token:', this.settings.memosAccessToken ? '已设置' : '未设置');
 
             const allMemos: MemoItem[] = [];
             let pageToken: string | undefined;
-            const pageSize = 100; // 每页获取100条记录
+            const pageSize = 100;
 
-            // 循环获取所有页面的数据，直到达到限制或没有更多数据
+            // 验证 API URL 格式
+            if (!this.settings.memosApiUrl.includes('/api/v1')) {
+                throw new Error('API URL 格式不正确，请确保包含 /api/v1');
+            }
+
             while (allMemos.length < this.settings.syncLimit) {
-                const url = new URL(`${this.settings.memosApiUrl}/memos`);
-                url.searchParams.set('limit', pageSize.toString());
-                url.searchParams.set('offset', '0');
-                url.searchParams.set('rowStatus', 'NORMAL');
-                url.searchParams.set('orderBy', 'createdTs');
-                url.searchParams.set('orderDirection', 'DESC');
+                // 使用标准的 REST API 路径
+                const baseUrl = this.settings.memosApiUrl;
+                const url = `${baseUrl}/memos`;
+
+                // 构建请求参数
+                const params = new URLSearchParams({
+                    'rowStatus': 'NORMAL',
+                    'limit': pageSize.toString()
+                });
+
                 if (pageToken) {
-                    url.searchParams.set('pageToken', pageToken);
+                    params.set('offset', pageToken);
                 }
 
-                console.log('Fetching page with URL:', url.toString());
+                const finalUrl = `${url}?${params.toString()}`;
 
-                const response = await fetch(url.toString(), {
+                console.log('请求 URL:', finalUrl);
+
+                const response = await fetch(finalUrl, {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${this.settings.memosAccessToken}`,
@@ -105,46 +116,52 @@ export default class MemosSyncPlugin extends Plugin {
                     }
                 });
 
-                console.log('Response status:', response.status);
+                console.log('响应状态:', response.status);
+                // 将响应头转换为对象并输出
+                const headers: { [key: string]: string } = {};
+                response.headers.forEach((value, key) => {
+                    headers[key] = value;
+                });
+                console.log('响应头:', JSON.stringify(headers, null, 2));
+
                 const responseText = await response.text();
-                console.log('Response text:', responseText);
+                console.log('原始响应内容:', responseText);
 
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}\nResponse: ${responseText}`);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}\n响应内容: ${responseText}`);
                 }
 
                 let data: MemosResponse;
                 try {
                     data = JSON.parse(responseText);
+                    console.log('解析后的响应数据:', JSON.stringify(data, null, 2));
                 } catch (e) {
-                    throw new Error(`Failed to parse JSON response: ${e.message}\nResponse: ${responseText}`);
+                    throw new Error(`JSON 解析失败: ${e.message}\n响应内容: ${responseText}`);
                 }
 
                 if (!data.memos || !Array.isArray(data.memos)) {
-                    throw new Error(`Invalid response format: memos array not found\nResponse: ${responseText}`);
+                    throw new Error(`响应格式无效: 未找到 memos 数组\n响应内容: ${responseText}`);
                 }
 
                 allMemos.push(...data.memos);
-                console.log(`Fetched ${data.memos.length} memos, total: ${allMemos.length}`);
+                console.log(`本次获取 ${data.memos.length} 条 memos，总计: ${allMemos.length}`);
 
-                // 如果没有下一页，或者已经达到限制，就退出
                 if (!data.nextPageToken || allMemos.length >= this.settings.syncLimit) {
                     break;
                 }
                 pageToken = data.nextPageToken;
             }
 
-            // 如果超过限制，只返回限制数量的条目
             const result = allMemos.slice(0, this.settings.syncLimit);
-            console.log(`Returning ${result.length} memos after applying limit`);
+            console.log(`最终返回 ${result.length} 条 memos`);
 
-            // 确保按创建时间倒序排序
             return result.sort((a, b) =>
                 new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
             );
         } catch (error) {
+            console.error('获取 memos 失败:', error);
             if (error instanceof TypeError && error.message === 'Failed to fetch') {
-                throw new Error(`Network error: Unable to connect to ${this.settings.memosApiUrl}. Please check if the URL is correct and accessible.`);
+                throw new Error(`网络错误: 法连接到 ${this.settings.memosApiUrl}。请检查 URL 是否正确且可访问。`);
             }
             throw error;
         }
