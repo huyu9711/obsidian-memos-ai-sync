@@ -16,10 +16,11 @@ export class MemosService {
         try {
             console.log('开始获取 memos，API URL:', this.apiUrl);
             console.log('Access Token:', this.accessToken ? '已设置' : '未设置');
+            console.log('同步限制:', this.syncLimit, '条');
 
             const allMemos: MemoItem[] = [];
             let pageToken: string | undefined;
-            const pageSize = 100;
+            const pageSize = Math.min(100, this.syncLimit);
 
             // 验证 API URL 格式
             if (!this.apiUrl.includes('/api/v1')) {
@@ -31,10 +32,14 @@ export class MemosService {
                 const baseUrl = this.apiUrl;
                 const url = `${baseUrl}/memos`;
 
+                // 计算本次请求需要的数量
+                const remainingCount = this.syncLimit - allMemos.length;
+                const currentPageSize = Math.min(pageSize, remainingCount);
+
                 // 构建请求参数
                 const params = new URLSearchParams({
                     'rowStatus': 'NORMAL',
-                    'limit': pageSize.toString()
+                    'limit': currentPageSize.toString()
                 });
 
                 if (pageToken) {
@@ -78,8 +83,10 @@ export class MemosService {
                     throw new Error(`响应格式无效: 未找到 memos 数组\n响应内容: ${responseText}`);
                 }
 
-                allMemos.push(...data.memos);
-                console.log(`本次获取 ${data.memos.length} 条 memos，总计: ${allMemos.length}`);
+                // 只添加需要的数量
+                const neededCount = Math.min(data.memos.length, this.syncLimit - allMemos.length);
+                allMemos.push(...data.memos.slice(0, neededCount));
+                console.log(`本次获取 ${neededCount} 条 memos，总计: ${allMemos.length}/${this.syncLimit}`);
 
                 if (!data.nextPageToken || allMemos.length >= this.syncLimit) {
                     break;
@@ -87,10 +94,9 @@ export class MemosService {
                 pageToken = data.nextPageToken;
             }
 
-            const result = allMemos.slice(0, this.syncLimit);
-            console.log(`最终返回 ${result.length} 条 memos`);
+            console.log(`最终返回 ${allMemos.length} 条 memos`);
 
-            return result.sort((a, b) =>
+            return allMemos.sort((a, b) =>
                 new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
             );
         } catch (error) {

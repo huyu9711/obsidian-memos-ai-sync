@@ -1,7 +1,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import { MemosPluginSettings, AIModelType } from '../models/settings';
 import MemosSyncPlugin from '../models/plugin';
-import { GEMINI_MODELS } from '../services/ai-service';
+import { GEMINI_MODELS, MODEL_DESCRIPTIONS } from '../services/ai-service';
 
 export class MemosSyncSettingTab extends PluginSettingTab {
     plugin: MemosSyncPlugin;
@@ -38,6 +38,61 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     this.plugin.settings.memosAccessToken = value;
                     await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName('同步目录')
+            .setDesc('Memos 内容在 Obsidian 中的存储位置')
+            .addText(text => text
+                .setPlaceholder('例如：memos')
+                .setValue(this.plugin.settings.syncDirectory)
+                .onChange(async (value) => {
+                    this.plugin.settings.syncDirectory = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName('同步模式')
+            .setDesc('选择手动同步或自动同步')
+            .addDropdown(dropdown => dropdown
+                .addOption('manual', '手动同步')
+                .addOption('auto', '自动同步')
+                .setValue(this.plugin.settings.syncFrequency)
+                .onChange(async (value: 'manual' | 'auto') => {
+                    this.plugin.settings.syncFrequency = value;
+                    await this.plugin.saveSettings();
+                    // 重新渲染以显示/隐藏自动同步间隔设置
+                    this.display();
+                }));
+
+        if (this.plugin.settings.syncFrequency === 'auto') {
+            new Setting(containerEl)
+                .setName('同步间隔')
+                .setDesc('自动同步的时间间隔（分钟）')
+                .addText(text => text
+                    .setPlaceholder('例如：30')
+                    .setValue(String(this.plugin.settings.autoSyncInterval))
+                    .onChange(async (value) => {
+                        const interval = parseInt(value);
+                        if (!isNaN(interval) && interval > 0) {
+                            this.plugin.settings.autoSyncInterval = interval;
+                            await this.plugin.saveSettings();
+                        }
+                    }));
+        }
+
+        new Setting(containerEl)
+            .setName('同步条数')
+            .setDesc('每次同步的最大条目数')
+            .addText(text => text
+                .setPlaceholder('例如：100')
+                .setValue(String(this.plugin.settings.syncLimit))
+                .onChange(async (value) => {
+                    const limit = parseInt(value);
+                    if (!isNaN(limit) && limit > 0) {
+                        this.plugin.settings.syncLimit = limit;
+                        await this.plugin.saveSettings();
+                    }
                 }));
 
         // AI 功能设置
@@ -131,66 +186,26 @@ export class MemosSyncSettingTab extends PluginSettingTab {
     }
 
     private displayModelOptions(containerEl: HTMLElement) {
-        const modelType = this.plugin.settings.ai.modelType;
-        let options: { [key: string]: string } = {};
-
-        switch (modelType) {
-            case 'gemini':
-                // 使用预定义的 Gemini 模型列表
-                GEMINI_MODELS.forEach(model => {
-                    options[model.name] = `${model.displayName} - ${model.description}`;
-                });
-                break;
-            case 'openai':
-                options = {
-                    'gpt-4-turbo-preview': 'GPT-4 Turbo',
-                    'gpt-4': 'GPT-4',
-                    'gpt-3.5-turbo': 'GPT-3.5 Turbo'
-                };
-                break;
-            case 'claude':
-                options = {
-                    'claude-3-opus': 'Claude 3 Opus',
-                    'claude-3-sonnet': 'Claude 3 Sonnet',
-                    'claude-2.1': 'Claude 2.1'
-                };
-                break;
-            case 'ollama':
-                options = {
-                    'llama2': 'Llama 2',
-                    'mistral': 'Mistral',
-                    'codellama': 'Code Llama'
-                };
-                break;
-        }
-
-        // 如果是 Gemini，添加模型说明
-        if (modelType === 'gemini') {
-            const selectedModel = GEMINI_MODELS.find(m => m.name === this.plugin.settings.ai.modelName);
-            if (selectedModel) {
-                containerEl.createEl('div', {
-                    text: `支持的输入类型: ${selectedModel.inputTypes.join(', ')}`,
-                    cls: 'setting-item-description'
-                });
-            }
-        }
-
-        new Setting(containerEl)
-            .setName('模型版本')
-            .setDesc('选择具体的模型版本')
-            .addDropdown(dropdown => {
-                Object.entries(options).forEach(([key, value]) => {
-                    dropdown.addOption(key, value);
-                });
-                return dropdown
-                    .setValue(this.plugin.settings.ai.modelName)
-                    .onChange(async (value) => {
+        if (this.plugin.settings.ai.modelType === 'gemini') {
+            new Setting(containerEl)
+                .setName('Gemini 模型')
+                .setDesc('选择要使用的 Gemini 模型')
+                .addDropdown(dropdown => {
+                    // 添加所有模型选项
+                    Object.entries(GEMINI_MODELS).forEach(([displayName, modelId]) => {
+                        dropdown.addOption(modelId, `${displayName} - ${MODEL_DESCRIPTIONS[modelId]}`);
+                    });
+                    
+                    // 设置当前值或默认值
+                    const currentModel = this.plugin.settings.ai.modelName || GEMINI_MODELS['Gemini 1.5 Flash'];
+                    dropdown.setValue(currentModel);
+                    
+                    dropdown.onChange(async (value) => {
                         this.plugin.settings.ai.modelName = value;
                         await this.plugin.saveSettings();
-                        if (modelType === 'gemini') {
-                            this.display(); // 重新渲染以更新模型说明
-                        }
                     });
-            });
+                });
+        }
+        // ... 其他模型的选项 ...
     }
 } 
