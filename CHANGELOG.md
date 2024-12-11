@@ -1,28 +1,29 @@
 # Changelog
 
-All notable changes to the Obsidian Memos Sync Plugin will be documented in this file.
-
-## [1.0.1] - 2024-12-10
-
-### Fixed
-- 修复了与 Memos API 兼容性的问题
-- 更新了 API 请求格式以匹配 Memos v0.16.3
-- 改进了错误处理和日志输出
-
-### Added
-- 添加了版本兼容性说明
-- 添加了更详细的错误信息提示
+## [1.1.0] - 2024-03-12
 
 ### Changed
-- 优化了 API 请求逻辑
-- 更新了文档，添加了版本要求说明
+- 重构项目代码结构，优化代码组织
+  - 将代码按功能模块拆分到 src 目录下
+  - 创建独立的服务类处理不同功能
+  - 改进类型定义和接口设计
 
-## [1.0.0] - 2024-12-04
+### Added
+- 新增模块化的代码结构：
+  - `src/models`: 类型定义和接口
+  - `src/services`: 核心服务实现
+  - `src/ui`: 用户界面组件
 
-### Initial Release
-- 基本的 Memos 同步功能
+### Internal
+- 将 Memos API 相关功能封装到 `MemosService`
+- 将文件处理逻辑封装到 `FileService`
+- 将设置界面代码移至独立文件
+- 优化主插件文件结构
+- 改进错误处理和日志记录
+
+## [1.0.0] - 2024-03-04
+- 初始版本发布
+- 支持同步 Memos 内容到 Obsidian
 - 支持手动和自动同步
-- 文件按年月组织
-- 支持图片和附件同步
-- Markdown 内容优化
-- 标签转换功能 
+- 支持资源文件同步
+- 支持按年/月组织文件结构 
