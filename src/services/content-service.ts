@@ -10,60 +10,64 @@ export class ContentService {
         private summaryLanguage: string
     ) {}
 
-    // 检查内容是否适合AI处理
     private isContentSuitableForAI(content: string): boolean {
-        // 移除链接、图片等markdown语法
         const cleanContent = content
-            .replace(/\[([^\]]*)\]\([^)]*\)/g, '') // 移除链接
-            .replace(/!\[([^\]]*)\]\([^)]*\)/g, '') // 移除图片
-            .replace(/```[\s\S]*?```/g, '') // 移除代码块
+            .replace(/\[([^\]]*)\]\([^)]*\)/g, '')
+            .replace(/!\[([^\]]*)\]\([^)]*\)/g, '')
+            .replace(/```[\s\S]*?```/g, '')
             .trim();
 
-        // 如果清理后的内容少于10个字符，认为不适合AI处理
         return cleanContent.length >= 10;
     }
 
-    // 处理单个 memo 内容
     async processMemoContent(memo: MemoItem): Promise<string> {
-        let content = memo.content;
-        let aiContent = '';
+        const { content } = memo;
+        const title = this.extractTitle(content);
+        const mainContent = title ? content.slice(title.length).trim() : content;
+        let processedContent = title ? `# ${title}\n\n` : '';
 
-        // 只有在启用 AI 功能且内容适合处理时才处理
         if (this.aiEnabled && this.isContentSuitableForAI(content)) {
-            // 如果启用了智能摘要
             if (this.enableSummary) {
                 const summary = await this.aiService.generateSummary(content, this.summaryLanguage);
-                if (summary && summary.trim()) {
-                    aiContent += `> [!ai]- AI摘要\n> ${summary.replace(/\n/g, '\n> ')}\n\n`;
+                if (summary?.trim()) {
+                    processedContent += `> [!abstract]+ 内容摘要\n> ${summary.replace(/\n/g, '\n> ')}\n\n`;
                 }
             }
 
-            // 如果启用了自动标签
             if (this.enableTags) {
                 const tags = await this.aiService.generateTags(content);
-                if (tags && tags.length > 0) {
-                    aiContent += `> [!ai]- AI标签\n> ${tags.map(tag => `#${tag}`).join(' ')}\n\n`;
+                if (tags?.length > 0) {
+                    processedContent += `> [!info]- 相关标签\n> ${tags.map(tag => `#${tag}`).join(' ')}\n\n`;
                 }
             }
         }
 
-        // 组合最终内容：原始内容在前，AI内容在后
-        return `${content}\n\n${aiContent}`.trim();
+        processedContent += mainContent;
+        return processedContent.trim();
     }
 
-    // 生成每周汇总
+    private extractTitle(content: string): string | null {
+        const lines = content.split('\n');
+        const firstLine = lines[0].trim();
+        
+        // 如果第一行是标题格式（# 开头），提取标题文本
+        if (firstLine.startsWith('# ')) {
+            return firstLine.slice(2).trim();
+        }
+        
+        return null;
+    }
+
     async generateWeeklyDigest(memos: MemoItem[]): Promise<string> {
         if (!this.aiEnabled) {
             return '';
         }
 
-        // 过滤出适合AI处理的内容
         const suitableMemos = memos.filter(memo => this.isContentSuitableForAI(memo.content));
         if (suitableMemos.length === 0) {
             return '本周没有足够的内容生成摘要。';
         }
 
-        // 按周分组
         const weekGroups = this.groupMemosByWeek(suitableMemos);
         let weeklyContent = '';
 
@@ -71,15 +75,57 @@ export class ContentService {
             const contents = weekMemos.map(memo => memo.content);
             const digest = await this.aiService.generateWeeklyDigest(contents);
             
-            if (digest && digest.trim()) {
-                weeklyContent += `# ${weekKey} 周报\n\n${digest}\n\n`;
+            if (digest?.trim()) {
+                const [year, week] = weekKey.split('-W');
+                weeklyContent += this.formatWeeklyDigest(digest, year, week, weekMemos.length);
             }
         }
 
         return weeklyContent || '本周没有生成摘要。';
     }
 
-    // 将 memos 按周分组
+    private formatWeeklyDigest(digest: string, year: string, week: string, memoCount: number): string {
+        const weekRange = this.getWeekDateRange(parseInt(year), parseInt(week));
+        return `# 📅 第 ${week} 周回顾 (${weekRange})
+
+## 🌟 本周亮点
+
+${digest}
+
+## 📊 统计数据
+
+- 📝 记录数量：${memoCount} 条
+- 📅 时间范围：${weekRange}
+
+## 💪 下周展望
+
+> [!quote] 激励语录
+> 每一个当下都是未来的起点，让我们继续前行，创造更多精彩！
+
+---
+*生成时间：${new Date().toLocaleString('zh-CN', { hour12: false })}*
+
+`;
+    }
+
+    private getWeekDateRange(year: number, week: number): string {
+        const firstDayOfYear = new Date(year, 0, 1);
+        const daysToFirstMonday = (8 - firstDayOfYear.getDay()) % 7;
+        const firstMonday = new Date(year, 0, 1 + daysToFirstMonday);
+        
+        const weekStart = new Date(firstMonday);
+        weekStart.setDate(firstMonday.getDate() + (week - 1) * 7);
+        
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        
+        const formatDate = (date: Date) => {
+            return `${date.getMonth() + 1}月${date.getDate()}日`;
+        };
+        
+        return `${formatDate(weekStart)} - ${formatDate(weekEnd)}`;
+    }
+
     private groupMemosByWeek(memos: MemoItem[]): { [key: string]: MemoItem[] } {
         const groups: { [key: string]: MemoItem[] } = {};
 
@@ -98,7 +144,6 @@ export class ContentService {
         return groups;
     }
 
-    // 获取日期所在的周数
     private getWeekNumber(date: Date): number {
         const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
         const dayNum = d.getUTCDay() || 7;

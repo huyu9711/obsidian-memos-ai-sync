@@ -77,7 +77,7 @@ class GeminiService implements AIService {
 
     async generateSummary(content: string, language: string): Promise<string> {
         try {
-            const prompt = `请用${language}语言简洁地总结以���内容（100字以内）：\n\n${content}`;
+            const prompt = `请用${language}语言简洁地总结以下内容（100字以内）：\n\n${content}`;
             const result = await this.model.generateContent(prompt);
             const response = await result.response;
             return response.text();
@@ -103,7 +103,22 @@ class GeminiService implements AIService {
     async generateWeeklyDigest(contents: string[]): Promise<string> {
         try {
             const combinedContent = contents.join('\n---\n');
-            const prompt = `请总结以下一周的内容要点（用中文，300字以内，用markdown格式输出）：\n\n${combinedContent}`;
+            const prompt = `请以markdown格式总结以下内容，生成一份温暖、积极且富有洞察力的周报。要求：
+1. 用简练但生动的语言描述本周的主要活动和思考
+2. 找出内容中的规律和见解
+3. 突出重要的成就和进展
+4. 指出可能的改进方向
+5. 保持积极向上的基调，但也要客观
+
+格式要求：
+- 使用markdown格式
+- 适当使用emoji增加可读性
+- 分点列举，层次分明
+- 语言要有温度，像在和朋友分享
+
+内容：
+${combinedContent}`;
+
             const result = await this.model.generateContent(prompt);
             const response = await result.response;
             return response.text();
