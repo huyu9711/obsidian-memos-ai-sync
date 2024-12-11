@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import { MemosPluginSettings, AIModelType } from '../models/settings';
 import MemosSyncPlugin from '../models/plugin';
+import { GEMINI_MODELS } from '../services/ai-service';
 
 export class MemosSyncSettingTab extends PluginSettingTab {
     plugin: MemosSyncPlugin;
@@ -69,7 +70,7 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                     this.display();
                 }));
 
-        // 根��选择的 AI 模型显示对应的子模型选项
+        // 根据选择的 AI 模型显示对应的子模型选项
         this.displayModelOptions(containerEl);
 
         new Setting(containerEl)
@@ -123,7 +124,7 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                 .addOption('ja', '日文')
                 .addOption('ko', '韩文')
                 .setValue(this.plugin.settings.ai.summaryLanguage)
-                .onChange(async (value: any) => {
+                .onChange(async (value: 'zh' | 'en' | 'ja' | 'ko') => {
                     this.plugin.settings.ai.summaryLanguage = value;
                     await this.plugin.saveSettings();
                 }));
@@ -134,17 +135,17 @@ export class MemosSyncSettingTab extends PluginSettingTab {
         let options: { [key: string]: string } = {};
 
         switch (modelType) {
+            case 'gemini':
+                // 使用预定义的 Gemini 模型列表
+                GEMINI_MODELS.forEach(model => {
+                    options[model.name] = `${model.displayName} - ${model.description}`;
+                });
+                break;
             case 'openai':
                 options = {
                     'gpt-4-turbo-preview': 'GPT-4 Turbo',
                     'gpt-4': 'GPT-4',
                     'gpt-3.5-turbo': 'GPT-3.5 Turbo'
-                };
-                break;
-            case 'gemini':
-                options = {
-                    'gemini-1.0-pro': 'Gemini 1.0 Pro',
-                    'gemini-1.0-pro-vision': 'Gemini 1.0 Pro Vision'
                 };
                 break;
             case 'claude':
@@ -163,6 +164,17 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                 break;
         }
 
+        // 如果是 Gemini，添加模型说明
+        if (modelType === 'gemini') {
+            const selectedModel = GEMINI_MODELS.find(m => m.name === this.plugin.settings.ai.modelName);
+            if (selectedModel) {
+                containerEl.createEl('div', {
+                    text: `支持的输入类型: ${selectedModel.inputTypes.join(', ')}`,
+                    cls: 'setting-item-description'
+                });
+            }
+        }
+
         new Setting(containerEl)
             .setName('模型版本')
             .setDesc('选择具体的模型版本')
@@ -175,6 +187,9 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                     .onChange(async (value) => {
                         this.plugin.settings.ai.modelName = value;
                         await this.plugin.saveSettings();
+                        if (modelType === 'gemini') {
+                            this.display(); // 重新渲染以更新模型说明
+                        }
                     });
             });
     }
