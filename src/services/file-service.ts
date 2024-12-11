@@ -62,6 +62,28 @@ export class FileService {
         }
     }
 
+    private getContentPreview(content: string): string {
+        let preview = content
+            .replace(/^>\s*\[!.*?\].*$/gm, '')
+            .replace(/^>\s.*$/gm, '')
+            .replace(/^\s*#\s+/gm, '')
+            .replace(/[_*~`]|_{2,}|\*{2,}|~{2,}/g, '')
+            .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+            .replace(/!\[([^\]]*)\]\([^)]*\)/g, '')
+            .replace(/\n+/g, ' ')
+            .trim();
+
+        if (!preview) {
+            return 'Untitled';
+        }
+
+        if (preview.length > 50) {
+            preview = `${preview.slice(0, 50)}...`;
+        }
+
+        return preview;
+    }
+
     async saveMemoToFile(memo: MemoItem): Promise<void> {
         const date = new Date(memo.createTime);
         const year = date.getFullYear();
@@ -74,7 +96,7 @@ export class FileService {
         await this.ensureDirectoryExists(monthDir);
         
         const contentPreview = memo.content 
-            ? this.sanitizeFileName(memo.content.slice(0, 50))
+            ? this.getContentPreview(memo.content)
             : this.sanitizeFileName(memo.name.replace('memos/', ''));
         
         const timeStr = this.formatDateTime(date, 'filename');

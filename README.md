@@ -11,10 +11,19 @@
 - 可自定义同步间隔
 
 ### 内容处理
-- 清晰可读的文件命名：`content_preview (YYYY-MM-DD HH-mm).md`
+- 智能文件命名
+  - 自动提取内容预览作为文件名
+  - 移除格式标记，保持文件名简洁
+  - 保留时间戳便于识别：`(YYYY-MM-DD HH-mm)`
 - Markdown 内容优化
 - 标签转换（从 Memos 格式 #tag# 到 Obsidian 格式 #tag）
 - 支持图片和文件附件
+
+### AI 增强
+- 自动生成内容摘要
+- 智能标签推荐
+- 每周内容汇总
+- 可配置的 AI 功能
 
 ### 资源管理
 - 自动下载图片和附件
@@ -71,7 +80,7 @@
 ```
 obsidian-memos-sync/
 ├── src/
-│   ├── models/          # 类型定义和接口
+│   ├��─ models/          # 类型定义和接口
 │   │   ├── settings.ts  # 设置和类型定义
 │   │   └── plugin.ts    # 插件接口定义
 │   ├── services/        # 核心服务实现
