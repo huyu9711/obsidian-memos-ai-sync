@@ -1,7 +1,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import { MemosPluginSettings, AIModelType } from '../models/settings';
 import MemosSyncPlugin from '../models/plugin';
-import { GEMINI_MODELS, MODEL_DESCRIPTIONS } from '../services/ai-service';
+import { GEMINI_MODELS, OPENAI_MODELS, MODEL_DESCRIPTIONS } from '../services/ai-service';
 
 export class MemosSyncSettingTab extends PluginSettingTab {
     plugin: MemosSyncPlugin;
@@ -186,15 +186,17 @@ export class MemosSyncSettingTab extends PluginSettingTab {
     }
 
     private displayModelOptions(containerEl: HTMLElement) {
-        if (this.plugin.settings.ai.modelType === 'gemini') {
+        const modelType = this.plugin.settings.ai.modelType;
+        
+        if (modelType === 'gemini') {
             new Setting(containerEl)
                 .setName('Gemini 模型')
                 .setDesc('选择要使用的 Gemini 模型')
                 .addDropdown(dropdown => {
                     // 添加所有模型选项
-                    Object.entries(GEMINI_MODELS).forEach(([displayName, modelId]) => {
+                    for (const [displayName, modelId] of Object.entries(GEMINI_MODELS)) {
                         dropdown.addOption(modelId, `${displayName} - ${MODEL_DESCRIPTIONS[modelId]}`);
-                    });
+                    }
                     
                     // 设置当前值或默认值
                     const currentModel = this.plugin.settings.ai.modelName || GEMINI_MODELS['Gemini 1.5 Flash'];
@@ -205,7 +207,25 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     });
                 });
+        } else if (modelType === 'openai') {
+            new Setting(containerEl)
+                .setName('OpenAI 模型')
+                .setDesc('选择要使用的 OpenAI 模型')
+                .addDropdown(dropdown => {
+                    // 添加所有模型选项
+                    for (const [displayName, modelId] of Object.entries(OPENAI_MODELS)) {
+                        dropdown.addOption(modelId, `${displayName} - ${MODEL_DESCRIPTIONS[modelId]}`);
+                    }
+                    
+                    // 设置当前值或默认值
+                    const currentModel = this.plugin.settings.ai.modelName || OPENAI_MODELS['GPT-4o'];
+                    dropdown.setValue(currentModel);
+                    
+                    dropdown.onChange(async (value) => {
+                        this.plugin.settings.ai.modelName = value;
+                        await this.plugin.saveSettings();
+                    });
+                });
         }
-        // ... 其他模型的选项 ...
     }
 } 
