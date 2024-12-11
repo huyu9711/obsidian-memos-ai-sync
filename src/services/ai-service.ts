@@ -178,4 +178,13 @@ class OllamaService implements AIService {
     async generateWeeklyDigest(contents: string[]): Promise<string> {
         return '';
     }
+}
+
+// 创建一个空的 AI 服务实现
+export function createDummyAIService(): AIService {
+    return {
+        generateSummary: async () => '',
+        generateTags: async () => [],
+        generateWeeklyDigest: async () => ''
+    };
 } 
