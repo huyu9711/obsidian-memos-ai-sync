@@ -1,7 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { Notice } from 'obsidian';
-import * as crypto from 'crypto';
 
 export interface AIService {
     generateSummary(content: string, language?: string): Promise<string>;
@@ -101,7 +100,7 @@ class GeminiService implements AIService {
     }
 
     async generateTags(content: string): Promise<string[]> {
-        const prompt = `请为以下内容生成3-5个相关标签（不要带#号���：\n\n${content}`;
+        const prompt = `请为以下内容生成3-5个相关标签（不要带#号）：\n\n${content}`;
         return retryWithBackoff(async () => {
             const result = await this.model.generateContent(prompt);
             const text = result.response.text();
@@ -130,33 +129,91 @@ class GeminiService implements AIService {
 export class OpenAIService implements AIService {
     private client: OpenAI;
     private model: string;
-    private encryptionKey: string;
+    private encryptionKey: Uint8Array;
+
+    // 生成随机 IV
+    private async generateIV(): Promise<Uint8Array> {
+        return crypto.getRandomValues(new Uint8Array(12));
+    }
+
+    // 生成加密密钥
+    private async generateKey(): Promise<CryptoKey> {
+        return crypto.subtle.generateKey(
+            {
+                name: 'AES-GCM',
+                length: 256
+            },
+            true,
+            ['encrypt', 'decrypt']
+        );
+    }
 
     // 加密 API 密钥
-    private encryptApiKey(apiKey: string): string {
-        const iv = crypto.randomBytes(16);
-        const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(this.encryptionKey), iv);
-        let encrypted = cipher.update(apiKey, 'utf8', 'hex');
-        encrypted += cipher.final('hex');
-        const tag = cipher.getAuthTag();
-        return `${iv.toString('hex')}:${encrypted}:${tag.toString('hex')}`;
+    private async encryptApiKey(apiKey: string): Promise<string> {
+        const iv = await this.generateIV();
+        const key = await this.generateKey();
+        const encodedText = new TextEncoder().encode(apiKey);
+        
+        const encryptedData = await crypto.subtle.encrypt(
+            {
+                name: 'AES-GCM',
+                iv
+            },
+            key,
+            encodedText
+        );
+
+        const encryptedArray = new Uint8Array(encryptedData);
+        return `${this.arrayBufferToBase64(iv)}:${this.arrayBufferToBase64(encryptedArray)}:${this.arrayBufferToBase64(await crypto.subtle.exportKey('raw', key))}`;
     }
 
     // 解密 API 密钥
-    private decryptApiKey(encryptedKey: string): string {
-        const [ivHex, encrypted, tagHex] = encryptedKey.split(':');
-        const iv = Buffer.from(ivHex, 'hex');
-        const tag = Buffer.from(tagHex, 'hex');
-        const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(this.encryptionKey), iv);
-        decipher.setAuthTag(tag);
-        let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-        return decrypted;
+    private async decryptApiKey(encryptedKey: string): Promise<string> {
+        const [ivStr, encryptedStr, keyStr] = encryptedKey.split(':');
+        const iv = this.base64ToArrayBuffer(ivStr);
+        const encryptedData = this.base64ToArrayBuffer(encryptedStr);
+        const keyData = this.base64ToArrayBuffer(keyStr);
+
+        const key = await crypto.subtle.importKey(
+            'raw',
+            keyData,
+            'AES-GCM',
+            true,
+            ['decrypt']
+        );
+
+        const decryptedData = await crypto.subtle.decrypt(
+            {
+                name: 'AES-GCM',
+                iv: iv
+            },
+            key,
+            encryptedData
+        );
+
+        return new TextDecoder().decode(decryptedData);
+    }
+
+    private arrayBufferToBase64(buffer: ArrayBuffer): string {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+    }
+
+    private base64ToArrayBuffer(base64: string): Uint8Array {
+        const binaryString = window.atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
     }
 
     constructor() {
-        // 生成唯一的加密密钥（在插件初始化时）
-        this.encryptionKey = crypto.randomBytes(32).toString('hex');
+        this.encryptionKey = crypto.getRandomValues(new Uint8Array(32));
     }
 
     async initialize(apiKey: string, modelName?: string) {
@@ -171,10 +228,10 @@ export class OpenAIService implements AIService {
             }
 
             // 加密存储 API 密钥
-            const encryptedKey = this.encryptApiKey(apiKey);
+            const encryptedKey = await this.encryptApiKey(apiKey);
             
             this.client = new OpenAI({
-                apiKey: this.decryptApiKey(encryptedKey),
+                apiKey: await this.decryptApiKey(encryptedKey),
                 baseURL: 'https://api.openai.com/v1',
                 dangerouslyAllowBrowser: true
             });
@@ -188,10 +245,10 @@ export class OpenAIService implements AIService {
 
             this.model = modelName || OPENAI_MODELS['GPT-4o'];
             console.log('OpenAI 服务初始化成功，使用模型:', this.model);
-            new Notice('AI 服务初始化成功');
+            new Notice(`AI 服务初始化成功`);
         } catch (error) {
             console.error('OpenAI 服务初始化失败:', error);
-            new Notice('AI 服务初始化失败: ' + error.message);
+            new Notice(`AI 服务初始化失败: ${error.message}`);
             throw error;
         }
     }
@@ -210,7 +267,7 @@ export class OpenAIService implements AIService {
     }
 
     async generateTags(content: string): Promise<string[]> {
-        const prompt = `请为以下内容生成3-5个相关标签（不要带#号）：\n\n${content}`;
+        const prompt = `请为以下内容生成3-5个相关标签（不���带#号）：\n\n${content}`;
         return retryWithBackoff(async () => {
             const response = await this.client.chat.completions.create({
                 model: this.model,
@@ -245,25 +302,23 @@ export class OpenAIService implements AIService {
     }
 }
 
-export function createAIService(type: string, apiKey: string, modelName?: string): AIService {
-    console.log('创建 AI 服务:', type, '模型:', modelName || '默认');
-    
-    try {
-        switch (type) {
-            case 'gemini':
-                return new GeminiService(apiKey, modelName);
-            case 'openai':
-                if (!apiKey) {
-                    throw new Error('未配置 API 密钥');
-                }
-                return new OpenAIService(apiKey, modelName);
-            default:
-                console.log('使用默认的空 AI 服务');
-                return createDummyAIService();
-        }
-    } catch (error) {
-        console.error(`${type} 服务初始化失败:`, error);
-        throw error; // 让上层处理错误
+export function createAIService(type: string, apiKey?: string, modelName?: string): AIService {
+    switch (type.toLowerCase()) {
+        case 'gemini':
+            if (!apiKey) {
+                throw new Error('未配置 Gemini API 密钥');
+            }
+            return new GeminiService(apiKey);
+        case 'openai':
+            if (!apiKey) {
+                throw new Error('未配置 API 密钥');
+            }
+            const service = new OpenAIService();
+            service.initialize(apiKey, modelName);
+            return service;
+        default:
+            console.log('使用默认的空 AI 服务');
+            return createDummyAIService();
     }
 }
 
