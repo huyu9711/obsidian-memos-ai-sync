@@ -10,18 +10,31 @@ export class ContentService {
         private summaryLanguage: string
     ) {}
 
+    // 检查内容是否适合AI处理
+    private isContentSuitableForAI(content: string): boolean {
+        // 移除链接、图片等markdown语法
+        const cleanContent = content
+            .replace(/\[([^\]]*)\]\([^)]*\)/g, '') // 移除链接
+            .replace(/!\[([^\]]*)\]\([^)]*\)/g, '') // 移除图片
+            .replace(/```[\s\S]*?```/g, '') // 移除代码块
+            .trim();
+
+        // 如果清理后的内容少于10个字符，认为不适合AI处理
+        return cleanContent.length >= 10;
+    }
+
     // 处理单个 memo 内容
     async processMemoContent(memo: MemoItem): Promise<string> {
         let content = memo.content;
         let aiContent = '';
 
-        // 只有在启用 AI 功能时才处理
-        if (this.aiEnabled) {
+        // 只有在启用 AI 功能且内容适合处理时才处理
+        if (this.aiEnabled && this.isContentSuitableForAI(content)) {
             // 如果启用了智能摘要
             if (this.enableSummary) {
                 const summary = await this.aiService.generateSummary(content, this.summaryLanguage);
-                if (summary) {
-                    aiContent += `# AI 摘要\n${summary}\n\n`;
+                if (summary && summary.trim()) {
+                    aiContent += `> [!ai]- AI摘要\n> ${summary.replace(/\n/g, '\n> ')}\n\n`;
                 }
             }
 
@@ -29,13 +42,13 @@ export class ContentService {
             if (this.enableTags) {
                 const tags = await this.aiService.generateTags(content);
                 if (tags && tags.length > 0) {
-                    aiContent += `# AI 标签\n${tags.map(tag => `#${tag}`).join(' ')}\n\n`;
+                    aiContent += `> [!ai]- AI标签\n> ${tags.map(tag => `#${tag}`).join(' ')}\n\n`;
                 }
             }
         }
 
-        // 组合最终内容：AI 内容在前，原始内容保持不变
-        return `${aiContent}${content}`;
+        // 组合最终内容：原始内容在前，AI内容在后
+        return `${content}\n\n${aiContent}`.trim();
     }
 
     // 生成每周汇总
@@ -44,18 +57,26 @@ export class ContentService {
             return '';
         }
 
+        // 过滤出适合AI处理的内容
+        const suitableMemos = memos.filter(memo => this.isContentSuitableForAI(memo.content));
+        if (suitableMemos.length === 0) {
+            return '本周没有足够的内容生成摘要。';
+        }
+
         // 按周分组
-        const weekGroups = this.groupMemosByWeek(memos);
+        const weekGroups = this.groupMemosByWeek(suitableMemos);
         let weeklyContent = '';
 
         for (const [weekKey, weekMemos] of Object.entries(weekGroups)) {
             const contents = weekMemos.map(memo => memo.content);
             const digest = await this.aiService.generateWeeklyDigest(contents);
             
-            weeklyContent += `# ${weekKey} 周报\n\n${digest}\n\n`;
+            if (digest && digest.trim()) {
+                weeklyContent += `# ${weekKey} 周报\n\n${digest}\n\n`;
+            }
         }
 
-        return weeklyContent;
+        return weeklyContent || '本周没有生成摘要。';
     }
 
     // 将 memos 按周分组
