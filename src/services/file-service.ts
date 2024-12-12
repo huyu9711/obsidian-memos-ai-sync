@@ -84,96 +84,141 @@ export class FileService {
         return preview;
     }
 
-    async saveMemoToFile(memo: MemoItem): Promise<void> {
-        const date = new Date(memo.createTime);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        
-        const yearDir = `${this.syncDirectory}/${year}`;
-        const monthDir = `${yearDir}/${month}`;
-        
-        await this.ensureDirectoryExists(yearDir);
-        await this.ensureDirectoryExists(monthDir);
-        
-        const contentPreview = memo.content 
-            ? this.getContentPreview(memo.content)
-            : this.sanitizeFileName(memo.name.replace('memos/', ''));
-        
-        const timeStr = this.formatDateTime(date, 'filename');
-        const fileName = this.sanitizeFileName(`${contentPreview} (${timeStr}).md`);
-        const filePath = `${monthDir}/${fileName}`;
-        
-        let content = memo.content || '';
-        content = content.replace(/\#([^\#\s]+)\#/g, '#$1');
-        
-        let documentContent = content;
-
-        if (memo.resources && memo.resources.length > 0) {
-            const images = memo.resources.filter(r => this.isImageFile(r.filename));
-            const otherFiles = memo.resources.filter(r => !this.isImageFile(r.filename));
-
-            if (images.length > 0) {
-                documentContent += '\n\n';
-                for (const image of images) {
-                    const resourceData = await this.memosService.downloadResource(image);
-                    if (resourceData) {
-                        const resourceDir = `${monthDir}/resources`;
-                        await this.ensureDirectoryExists(resourceDir);
-                        const localFilename = `${image.name.split('/').pop()}_${this.sanitizeFileName(image.filename)}`;
-                        const localPath = `${resourceDir}/${localFilename}`;
-                        
-                        await this.vault.adapter.writeBinary(localPath, resourceData);
-                        const relativePath = this.getRelativePath(filePath, localPath);
-                        documentContent += `![${image.filename}](${relativePath})\n`;
-                    }
+    private async getMemoFiles(): Promise<string[]> {
+        const files: string[] = [];
+        const processDirectory = async (dirPath: string) => {
+            const items = await this.vault.adapter.list(dirPath);
+            for (const file of items.files) {
+                if (file.endsWith('.md')) {
+                    files.push(file);
                 }
             }
-
-            if (otherFiles.length > 0) {
-                documentContent += '\n\n### Attachments\n';
-                for (const file of otherFiles) {
-                    const resourceData = await this.memosService.downloadResource(file);
-                    if (resourceData) {
-                        const resourceDir = `${monthDir}/resources`;
-                        await this.ensureDirectoryExists(resourceDir);
-                        const localFilename = `${file.name.split('/').pop()}_${this.sanitizeFileName(file.filename)}`;
-                        const localPath = `${resourceDir}/${localFilename}`;
-                        
-                        await this.vault.adapter.writeBinary(localPath, resourceData);
-                        const relativePath = this.getRelativePath(filePath, localPath);
-                        documentContent += `- [${file.filename}](${relativePath})\n`;
-                    }
-                }
+            for (const dir of items.folders) {
+                await processDirectory(dir);
             }
-        }
+        };
 
-        const tags = (memo.content || '').match(/\#([^\#\s]+)(?:\#|\s|$)/g) || [];
-        const cleanTags = tags.map(tag => tag.replace(/^\#|\#$/g, '').trim());
-        
-        documentContent += '\n\n---\n';
-        documentContent += '> [!note]- Memo Properties\n';
-        documentContent += `> - Created: ${this.formatDateTime(new Date(memo.createTime))}\n`;
-        documentContent += `> - Updated: ${this.formatDateTime(new Date(memo.updateTime))}\n`;
-        documentContent += '> - Type: memo\n';
-        if (cleanTags.length > 0) {
-            documentContent += `> - Tags: [${cleanTags.join(', ')}]\n`;
-        }
-        documentContent += `> - ID: ${memo.name}\n`;
-        documentContent += `> - Visibility: ${memo.visibility.toLowerCase()}\n`;
+        await processDirectory(this.syncDirectory);
+        return files;
+    }
 
+    async isMemoExists(memoId: string): Promise<boolean> {
         try {
-            const exists = await this.vault.adapter.exists(filePath);
-            if (exists) {
-                const file = this.vault.getAbstractFileByPath(filePath) as TFile;
-                if (file) {
-                    await this.vault.modify(file, documentContent);
+            const files = await this.getMemoFiles();
+            for (const file of files) {
+                const content = await this.vault.adapter.read(file);
+                if (content.includes(`> - ID: ${memoId}`)) {
+                    return true;
                 }
-            } else {
-                await this.vault.create(filePath, documentContent);
             }
-            console.log(`Saved memo to: ${filePath}`);
+            return false;
         } catch (error) {
-            console.error(`Failed to save memo to file: ${filePath}`, error);
+            console.error('检查 memo 是否存在时出错:', error);
+            return false;
+        }
+    }
+
+    async saveMemoToFile(memo: MemoItem): Promise<void> {
+        try {
+            const exists = await this.isMemoExists(memo.name);
+            if (exists) {
+                console.log(`Memo ${memo.name} 已存在，跳过`);
+                return;
+            }
+
+            const date = new Date(memo.createTime);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            
+            const yearDir = `${this.syncDirectory}/${year}`;
+            const monthDir = `${yearDir}/${month}`;
+            
+            await this.ensureDirectoryExists(yearDir);
+            await this.ensureDirectoryExists(monthDir);
+            
+            const contentPreview = memo.content 
+                ? this.getContentPreview(memo.content)
+                : this.sanitizeFileName(memo.name.replace('memos/', ''));
+            
+            const timeStr = this.formatDateTime(date, 'filename');
+            const fileName = this.sanitizeFileName(`${contentPreview} (${timeStr}).md`);
+            const filePath = `${monthDir}/${fileName}`;
+            
+            let content = memo.content || '';
+            content = content.replace(/\#([^\#\s]+)\#/g, '#$1');
+            
+            let documentContent = content;
+
+            if (memo.resources && memo.resources.length > 0) {
+                const images = memo.resources.filter(r => this.isImageFile(r.filename));
+                const otherFiles = memo.resources.filter(r => !this.isImageFile(r.filename));
+
+                if (images.length > 0) {
+                    documentContent += '\n\n';
+                    for (const image of images) {
+                        const resourceData = await this.memosService.downloadResource(image);
+                        if (resourceData) {
+                            const resourceDir = `${monthDir}/resources`;
+                            await this.ensureDirectoryExists(resourceDir);
+                            const localFilename = `${image.name.split('/').pop()}_${this.sanitizeFileName(image.filename)}`;
+                            const localPath = `${resourceDir}/${localFilename}`;
+                            
+                            await this.vault.adapter.writeBinary(localPath, resourceData);
+                            const relativePath = this.getRelativePath(filePath, localPath);
+                            documentContent += `![${image.filename}](${relativePath})\n`;
+                        }
+                    }
+                }
+
+                if (otherFiles.length > 0) {
+                    documentContent += '\n\n### Attachments\n';
+                    for (const file of otherFiles) {
+                        const resourceData = await this.memosService.downloadResource(file);
+                        if (resourceData) {
+                            const resourceDir = `${monthDir}/resources`;
+                            await this.ensureDirectoryExists(resourceDir);
+                            const localFilename = `${file.name.split('/').pop()}_${this.sanitizeFileName(file.filename)}`;
+                            const localPath = `${resourceDir}/${localFilename}`;
+                            
+                            await this.vault.adapter.writeBinary(localPath, resourceData);
+                            const relativePath = this.getRelativePath(filePath, localPath);
+                            documentContent += `- [${file.filename}](${relativePath})\n`;
+                        }
+                    }
+                }
+            }
+
+            const tags = (memo.content || '').match(/\#([^\#\s]+)(?:\#|\s|$)/g) || [];
+            const cleanTags = tags.map(tag => tag.replace(/^\#|\#$/g, '').trim());
+            
+            documentContent += '\n\n---\n';
+            documentContent += '> [!note]- Memo Properties\n';
+            documentContent += `> - Created: ${this.formatDateTime(new Date(memo.createTime))}\n`;
+            documentContent += `> - Updated: ${this.formatDateTime(new Date(memo.updateTime))}\n`;
+            documentContent += '> - Type: memo\n';
+            if (cleanTags.length > 0) {
+                documentContent += `> - Tags: [${cleanTags.join(', ')}]\n`;
+            }
+            documentContent += `> - ID: ${memo.name}\n`;
+            documentContent += `> - Visibility: ${memo.visibility.toLowerCase()}\n`;
+
+            try {
+                const exists = await this.vault.adapter.exists(filePath);
+                if (exists) {
+                    const file = this.vault.getAbstractFileByPath(filePath) as TFile;
+                    if (file) {
+                        await this.vault.modify(file, documentContent);
+                    }
+                } else {
+                    await this.vault.create(filePath, documentContent);
+                }
+                console.log(`Saved memo to: ${filePath}`);
+            } catch (error) {
+                console.error(`Failed to save memo to file: ${filePath}`, error);
+                throw new Error(`Failed to save memo: ${error.message}`);
+            }
+        } catch (error) {
+            console.error('保存 memo 到文件时出错:', error);
             throw new Error(`Failed to save memo: ${error.message}`);
         }
     }
