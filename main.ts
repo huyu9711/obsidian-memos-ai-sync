@@ -44,10 +44,14 @@ export default class MemosSyncPlugin extends Plugin {
         let aiService: AIService | null = null;
         if (this.settings.ai.enabled && this.settings.ai.apiKey) {
             try {
+                const modelName = this.settings.ai.modelName === 'custom' 
+                    ? this.settings.ai.customModelName 
+                    : this.settings.ai.modelName;
+                    
                 aiService = createAIService(
                     this.settings.ai.modelType,
                     this.settings.ai.apiKey,
-                    this.settings.ai.modelName
+                    modelName
                 );
             } catch (error) {
                 console.error('Failed to initialize AI service:', error);

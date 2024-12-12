@@ -205,8 +205,24 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                     dropdown.onChange(async (value) => {
                         this.plugin.settings.ai.modelName = value;
                         await this.plugin.saveSettings();
+                        // 重新渲染以显示/隐藏自定义模型输入框
+                        this.display();
                     });
                 });
+
+            // 如果选择了自定义模型，显示输入框
+            if (this.plugin.settings.ai.modelName === 'custom') {
+                new Setting(containerEl)
+                    .setName('自定义模型名称')
+                    .setDesc('输入要使用的自定义模型名称')
+                    .addText(text => text
+                        .setPlaceholder('例如：gemini-pro-latest')
+                        .setValue(this.plugin.settings.ai.customModelName)
+                        .onChange(async (value) => {
+                            this.plugin.settings.ai.customModelName = value;
+                            await this.plugin.saveSettings();
+                        }));
+            }
         } else if (modelType === 'openai') {
             new Setting(containerEl)
                 .setName('OpenAI 模型')
@@ -224,8 +240,88 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                     dropdown.onChange(async (value) => {
                         this.plugin.settings.ai.modelName = value;
                         await this.plugin.saveSettings();
+                        // 重新渲染以显示/隐藏自定义模型输入框
+                        this.display();
                     });
                 });
+
+            // 如果选择了自定义模型，显示输入框
+            if (this.plugin.settings.ai.modelName === 'custom') {
+                new Setting(containerEl)
+                    .setName('自定义模型名称')
+                    .setDesc('输入要使用的自定义模型名称')
+                    .addText(text => text
+                        .setPlaceholder('例如：gpt-4-1106-preview')
+                        .setValue(this.plugin.settings.ai.customModelName)
+                        .onChange(async (value) => {
+                            this.plugin.settings.ai.customModelName = value;
+                            await this.plugin.saveSettings();
+                        }));
+            }
+        } else if (modelType === 'claude') {
+            new Setting(containerEl)
+                .setName('Claude 模型')
+                .setDesc('选择要使用的 Claude 模型')
+                .addDropdown(dropdown => {
+                    dropdown.addOption('claude-3-opus-20240229', 'Claude 3 Opus')
+                        .addOption('claude-3-sonnet-20240229', 'Claude 3 Sonnet')
+                        .addOption('claude-3-haiku-20240307', 'Claude 3 Haiku')
+                        .addOption('custom', '自定义模型 - 自定义模型名称');
+                    
+                    const currentModel = this.plugin.settings.ai.modelName || 'claude-3-opus-20240229';
+                    dropdown.setValue(currentModel);
+                    
+                    dropdown.onChange(async (value) => {
+                        this.plugin.settings.ai.modelName = value;
+                        await this.plugin.saveSettings();
+                        this.display();
+                    });
+                });
+
+            if (this.plugin.settings.ai.modelName === 'custom') {
+                new Setting(containerEl)
+                    .setName('自定义模型名称')
+                    .setDesc('输入要使用的自定义模型名称')
+                    .addText(text => text
+                        .setPlaceholder('例如：claude-3-opus-next')
+                        .setValue(this.plugin.settings.ai.customModelName)
+                        .onChange(async (value) => {
+                            this.plugin.settings.ai.customModelName = value;
+                            await this.plugin.saveSettings();
+                        }));
+            }
+        } else if (modelType === 'ollama') {
+            new Setting(containerEl)
+                .setName('Ollama 模型')
+                .setDesc('选择要使用的 Ollama 模型')
+                .addDropdown(dropdown => {
+                    dropdown.addOption('llama2', 'Llama 2')
+                        .addOption('mistral', 'Mistral')
+                        .addOption('mixtral', 'Mixtral')
+                        .addOption('custom', '自定义模型 - 自定义模型名称');
+                    
+                    const currentModel = this.plugin.settings.ai.modelName || 'llama2';
+                    dropdown.setValue(currentModel);
+                    
+                    dropdown.onChange(async (value) => {
+                        this.plugin.settings.ai.modelName = value;
+                        await this.plugin.saveSettings();
+                        this.display();
+                    });
+                });
+
+            if (this.plugin.settings.ai.modelName === 'custom') {
+                new Setting(containerEl)
+                    .setName('自定义模型名称')
+                    .setDesc('输入要使用的自定义模型名称')
+                    .addText(text => text
+                        .setPlaceholder('例如：llama2:13b')
+                        .setValue(this.plugin.settings.ai.customModelName)
+                        .onChange(async (value) => {
+                            this.plugin.settings.ai.customModelName = value;
+                            await this.plugin.saveSettings();
+                        }));
+            }
         }
     }
 } 

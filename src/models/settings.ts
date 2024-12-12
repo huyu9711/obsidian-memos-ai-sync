@@ -29,6 +29,7 @@ export interface AISettings {
     enabled: boolean;
     modelType: AIModelType;
     modelName: string;
+    customModelName: string;
     apiKey: string;
     weeklyDigest: boolean;
     autoTags: boolean;
@@ -58,7 +59,8 @@ export const DEFAULT_SETTINGS: MemosPluginSettings = {
     ai: {
         enabled: false,
         modelType: 'openai',
-        modelName: 'gpt-3.5-turbo',
+        modelName: 'gpt-4o',
+        customModelName: '',
         apiKey: '',
         weeklyDigest: true,
         autoTags: true,

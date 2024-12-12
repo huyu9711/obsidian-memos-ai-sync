@@ -14,18 +14,20 @@ export const GEMINI_MODELS = {
     'Gemini 1.5 Pro': 'gemini-1.5-pro',
     'Gemini 1.0 Pro': 'gemini-1.0-pro',
     'Text Embedding': 'text-embedding-004',
-    'AQA': 'aqa'
+    'AQA': 'aqa',
+    '自定义模型': 'custom'  // 新增：自定义模型选项
 } as const;
 
 export const OPENAI_MODELS = {
     // GPT-4o 系列
-    'GPT-4o': 'gpt-4o',                    // 标准版
-    'GPT-4o (2024-11-20)': 'gpt-4o-2024-11-20',  // 11月快照版本
-    'GPT-4o Mini': 'gpt-4o-mini',          // 轻量级版本
-    'GPT-4o Mini (2024-07-18)': 'gpt-4o-mini-2024-07-18',  // Mini 快照版本
-    'GPT-4o Realtime': 'gpt-4o-realtime-preview',  // 实时预览版本
-    'GPT-4o Realtime (2024-10-01)': 'gpt-4o-realtime-preview-2024-10-01',  // 实时预览快照版本
-    'ChatGPT-4o Latest': 'chatgpt-4o-latest',  // ChatGPT 使用的最新版本
+    'GPT-4o': 'gpt-4o',
+    'GPT-4o (2024-11-20)': 'gpt-4o-2024-11-20',
+    'GPT-4o Mini': 'gpt-4o-mini',
+    'GPT-4o Mini (2024-07-18)': 'gpt-4o-mini-2024-07-18',
+    'GPT-4o Realtime': 'gpt-4o-realtime-preview',
+    'GPT-4o Realtime (2024-10-01)': 'gpt-4o-realtime-preview-2024-10-01',
+    'ChatGPT-4o Latest': 'chatgpt-4o-latest',
+    '自定义模型': 'custom'  // 已添加
 } as const;
 
 export const MODEL_DESCRIPTIONS = {
@@ -36,6 +38,7 @@ export const MODEL_DESCRIPTIONS = {
     'gemini-1.0-pro': '文本 (将于 2025 年 2 月 15 日弃用)',
     'text-embedding-004': '文本',
     'aqa': '文本',
+    'custom': '自定义模型',  // 新增
     
     // OpenAI Models
     'gpt-4o': '标准版 GPT-4o，强大的推理能力',
@@ -243,6 +246,7 @@ export class OpenAIService implements AIService {
                 throw new Error('API 密钥验证失败');
             }
 
+            // 如果是自定义模型，使用 customModelName
             this.model = modelName || OPENAI_MODELS['GPT-4o'];
             console.log('OpenAI 服务初始化成功，使用模型:', this.model);
             new Notice(`AI 服务初始化成功`);
@@ -267,7 +271,7 @@ export class OpenAIService implements AIService {
     }
 
     async generateTags(content: string): Promise<string[]> {
-        const prompt = `请为以下内容生成3-5个相关标签（不���带#号）：\n\n${content}`;
+        const prompt = `请为以下内容生成3-5个相关标签（不要带#号）：\n\n${content}`;
         return retryWithBackoff(async () => {
             const response = await this.client.chat.completions.create({
                 model: this.model,
