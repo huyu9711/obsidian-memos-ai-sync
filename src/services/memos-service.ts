@@ -27,23 +27,18 @@ export class MemosService {
                 throw new Error('API URL 格式不正确，请确保包含 /api/v1');
             }
 
-            while (allMemos.length < this.syncLimit) {
-                // 使用标准的 REST API 路径
+            do {
                 const baseUrl = this.apiUrl;
                 const url = `${baseUrl}/memos`;
-
-                // 计算本次请求需要的数量
-                const remainingCount = this.syncLimit - allMemos.length;
-                const currentPageSize = Math.min(pageSize, remainingCount);
 
                 // 构建请求参数
                 const params = new URLSearchParams({
                     'rowStatus': 'NORMAL',
-                    'limit': currentPageSize.toString()
+                    'limit': pageSize.toString()
                 });
 
                 if (pageToken) {
-                    params.set('offset', pageToken);
+                    params.set('pageToken', pageToken);
                 }
 
                 const finalUrl = `${url}?${params.toString()}`;
@@ -57,46 +52,40 @@ export class MemosService {
                     }
                 });
 
-                console.log('响应状态:', response.status);
-                const headers: { [key: string]: string } = {};
-                response.headers.forEach((value, key) => {
-                    headers[key] = value;
-                });
-                console.log('响应头:', JSON.stringify(headers, null, 2));
-
-                const responseText = await response.text();
-                console.log('原始响应内容:', responseText);
-
                 if (!response.ok) {
+                    const responseText = await response.text();
                     throw new Error(`HTTP ${response.status}: ${response.statusText}\n响应内容: ${responseText}`);
                 }
 
-                let data: MemosResponse;
-                try {
-                    data = JSON.parse(responseText);
-                    console.log('解析后的响应数据:', JSON.stringify(data, null, 2));
-                } catch (e) {
-                    throw new Error(`JSON 解析失败: ${e.message}\n响应内容: ${responseText}`);
+                const responseData = await response.json();
+                console.log('API 响应数据:', responseData);
+
+                if (!responseData || !Array.isArray(responseData.memos)) {
+                    throw new Error('响应格式无效: 返回数据不包含 memos 数组');
                 }
 
-                if (!data.memos || !Array.isArray(data.memos)) {
-                    throw new Error(`响应格式无效: 未找到 memos 数组\n响应内容: ${responseText}`);
+                const memos = responseData.memos;
+                pageToken = responseData.nextPageToken;
+
+                if (memos.length === 0) {
+                    break; // 没有更多数据了
                 }
 
                 // 只添加需要的数量
-                const neededCount = Math.min(data.memos.length, this.syncLimit - allMemos.length);
-                allMemos.push(...data.memos.slice(0, neededCount));
+                const remainingCount = this.syncLimit - allMemos.length;
+                const neededCount = Math.min(memos.length, remainingCount);
+                allMemos.push(...memos.slice(0, neededCount));
                 console.log(`本次获取 ${neededCount} 条 memos，总计: ${allMemos.length}/${this.syncLimit}`);
 
-                if (!data.nextPageToken || allMemos.length >= this.syncLimit) {
+                // 如果已经达到同步限制或没有下一页，就退出
+                if (allMemos.length >= this.syncLimit || !pageToken) {
                     break;
                 }
-                pageToken = data.nextPageToken;
-            }
+
+            } while (true);
 
             console.log(`最终返回 ${allMemos.length} 条 memos`);
-
-            return allMemos.sort((a, b) =>
+            return allMemos.sort((a, b) => 
                 new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
             );
         } catch (error) {
