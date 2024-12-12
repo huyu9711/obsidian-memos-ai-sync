@@ -1,6 +1,6 @@
-import { TFile, Vault } from 'obsidian';
-import { MemoItem } from '../models/settings';
-import { MemosService } from './memos-service';
+import type { TFile, Vault } from 'obsidian';
+import type { MemoItem } from '../models/settings';
+import type { MemosService } from './memos-service';
 
 export class FileService {
     constructor(
@@ -24,10 +24,14 @@ export class FileService {
     }
 
     private sanitizeFileName(fileName: string): string {
-        return fileName
-            .replace(/[\\/:*?"<>|#]/g, '_')
+        let sanitized = fileName.replace(/^[\\/:*?"<>|#\s]+/, '');
+        
+        sanitized = sanitized
             .replace(/\s+/g, ' ')
+            .replace(/[\\/:*?"<>|#]/g, '')
             .trim();
+
+        return sanitized || 'untitled';
     }
 
     private getRelativePath(fromPath: string, toPath: string): string {
