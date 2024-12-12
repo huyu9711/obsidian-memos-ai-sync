@@ -1,7 +1,7 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
-import { MemosPluginSettings, AIModelType } from '../models/settings';
-import MemosSyncPlugin from '../models/plugin';
-import { GEMINI_MODELS, OPENAI_MODELS, MODEL_DESCRIPTIONS } from '../services/ai-service';
+import { App, type Plugin, PluginSettingTab, Setting } from 'obsidian';
+import type { MemosPluginSettings, AIModelType } from '../models/settings';
+import type MemosSyncPlugin from '../models/plugin';
+import { GEMINI_MODELS, OPENAI_MODELS, OLLAMA_MODELS, MODEL_DESCRIPTIONS } from '../services/ai-service';
 
 export class MemosSyncSettingTab extends PluginSettingTab {
     plugin: MemosSyncPlugin;
@@ -106,83 +106,90 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     this.plugin.settings.ai.enabled = value;
                     await this.plugin.saveSettings();
-                }));
-
-        // AI 模型选择
-        new Setting(containerEl)
-            .setName('AI 模型')
-            .setDesc('选择要使用的 AI 模型')
-            .addDropdown(dropdown => dropdown
-                .addOption('openai', 'OpenAI')
-                .addOption('gemini', 'Google Gemini')
-                .addOption('claude', 'Anthropic Claude')
-                .addOption('ollama', 'Ollama')
-                .setValue(this.plugin.settings.ai.modelType)
-                .onChange(async (value: AIModelType) => {
-                    this.plugin.settings.ai.modelType = value;
-                    await this.plugin.saveSettings();
-                    // 重新渲染子模型选择
+                    // 重新渲染以显示/隐藏相关设置
                     this.display();
                 }));
 
-        // 根据选择的 AI 模型显示对应的子模型选项
-        this.displayModelOptions(containerEl);
+        if (this.plugin.settings.ai.enabled) {
+            // AI 模型选择
+            new Setting(containerEl)
+                .setName('AI 模型')
+                .setDesc('选择要使用的 AI 模型')
+                .addDropdown(dropdown => dropdown
+                    .addOption('openai', 'OpenAI')
+                    .addOption('gemini', 'Google Gemini')
+                    .addOption('claude', 'Anthropic Claude')
+                    .addOption('ollama', 'Ollama')
+                    .setValue(this.plugin.settings.ai.modelType)
+                    .onChange(async (value: AIModelType) => {
+                        this.plugin.settings.ai.modelType = value;
+                        await this.plugin.saveSettings();
+                        // 重新渲染以显示/隐藏相关设置
+                        this.display();
+                    }));
 
-        new Setting(containerEl)
-            .setName('API 密钥')
-            .setDesc('您的 AI 服务 API 密钥')
-            .addText(text => text
-                .setPlaceholder('输入 API 密钥')
-                .setValue(this.plugin.settings.ai.apiKey)
-                .onChange(async (value) => {
-                    this.plugin.settings.ai.apiKey = value;
-                    await this.plugin.saveSettings();
-                }));
+            // 只有在选择非 Ollama 模型时显示 API 密钥设置
+            if (this.plugin.settings.ai.modelType !== 'ollama') {
+                new Setting(containerEl)
+                    .setName('API 密钥')
+                    .setDesc('您的 AI 服务 API 密钥')
+                    .addText(text => text
+                        .setPlaceholder('输入 API 密钥')
+                        .setValue(this.plugin.settings.ai.apiKey)
+                        .onChange(async (value) => {
+                            this.plugin.settings.ai.apiKey = value;
+                            await this.plugin.saveSettings();
+                        }));
+            }
 
-        // AI 功能选项
-        new Setting(containerEl)
-            .setName('每周汇总')
-            .setDesc('自动生成每周内容汇总')
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.ai.weeklyDigest)
-                .onChange(async (value) => {
-                    this.plugin.settings.ai.weeklyDigest = value;
-                    await this.plugin.saveSettings();
-                }));
+            // 显示特定模型的选项
+            this.displayModelOptions(containerEl);
 
-        new Setting(containerEl)
-            .setName('自动标签')
-            .setDesc('根据内容自动生成标签')
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.ai.autoTags)
-                .onChange(async (value) => {
-                    this.plugin.settings.ai.autoTags = value;
-                    await this.plugin.saveSettings();
-                }));
+            // AI 功能选项
+            new Setting(containerEl)
+                .setName('每周汇总')
+                .setDesc('自动生成每周内容汇总')
+                .addToggle(toggle => toggle
+                    .setValue(this.plugin.settings.ai.weeklyDigest)
+                    .onChange(async (value) => {
+                        this.plugin.settings.ai.weeklyDigest = value;
+                        await this.plugin.saveSettings();
+                    }));
 
-        new Setting(containerEl)
-            .setName('智能摘要')
-            .setDesc('自动生成内容摘要')
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.ai.intelligentSummary)
-                .onChange(async (value) => {
-                    this.plugin.settings.ai.intelligentSummary = value;
-                    await this.plugin.saveSettings();
-                }));
+            new Setting(containerEl)
+                .setName('自动标签')
+                .setDesc('根据内容自动生成标签')
+                .addToggle(toggle => toggle
+                    .setValue(this.plugin.settings.ai.autoTags)
+                    .onChange(async (value) => {
+                        this.plugin.settings.ai.autoTags = value;
+                        await this.plugin.saveSettings();
+                    }));
 
-        new Setting(containerEl)
-            .setName('摘要语言')
-            .setDesc('选择摘要生成的语言')
-            .addDropdown(dropdown => dropdown
-                .addOption('zh', '中文')
-                .addOption('en', '英文')
-                .addOption('ja', '日文')
-                .addOption('ko', '韩文')
-                .setValue(this.plugin.settings.ai.summaryLanguage)
-                .onChange(async (value: 'zh' | 'en' | 'ja' | 'ko') => {
-                    this.plugin.settings.ai.summaryLanguage = value;
-                    await this.plugin.saveSettings();
-                }));
+            new Setting(containerEl)
+                .setName('智能摘要')
+                .setDesc('自动生成内容摘要')
+                .addToggle(toggle => toggle
+                    .setValue(this.plugin.settings.ai.intelligentSummary)
+                    .onChange(async (value) => {
+                        this.plugin.settings.ai.intelligentSummary = value;
+                        await this.plugin.saveSettings();
+                    }));
+
+            new Setting(containerEl)
+                .setName('摘要语言')
+                .setDesc('选择摘要生成的语言')
+                .addDropdown(dropdown => dropdown
+                    .addOption('zh', '中文')
+                    .addOption('en', '英文')
+                    .addOption('ja', '日文')
+                    .addOption('ko', '韩文')
+                    .setValue(this.plugin.settings.ai.summaryLanguage)
+                    .onChange(async (value: 'zh' | 'en' | 'ja' | 'ko') => {
+                        this.plugin.settings.ai.summaryLanguage = value;
+                        await this.plugin.saveSettings();
+                    }));
+        }
     }
 
     private displayModelOptions(containerEl: HTMLElement) {
@@ -291,16 +298,33 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                         }));
             }
         } else if (modelType === 'ollama') {
+            // 添加 Ollama 服务��址设置
+            new Setting(containerEl)
+                .setName('Ollama 服务地址')
+                .setDesc('设置 Ollama 服务的地址（默认为 http://localhost:11434）')
+                .addText(text => text
+                    .setPlaceholder('http://localhost:11434')
+                    .setValue(this.plugin.settings.ai.ollamaBaseUrl)
+                    .onChange(async (value) => {
+                        this.plugin.settings.ai.ollamaBaseUrl = value;
+                        await this.plugin.saveSettings();
+                    }));
+
+            // Ollama 模型选择
             new Setting(containerEl)
                 .setName('Ollama 模型')
                 .setDesc('选择要使用的 Ollama 模型')
                 .addDropdown(dropdown => {
-                    dropdown.addOption('llama2', 'Llama 2')
-                        .addOption('mistral', 'Mistral')
-                        .addOption('mixtral', 'Mixtral')
-                        .addOption('custom', '自定义模型 - 自定义模型名称');
+                    // 添加所有模型选项
+                    Object.entries(OLLAMA_MODELS).forEach(([displayName, modelId]) => {
+                        if (typeof modelId === 'string') {
+                            dropdown.addOption(modelId, `${displayName} - ${MODEL_DESCRIPTIONS[modelId] || modelId}`);
+                        }
+                    });
                     
-                    const currentModel = this.plugin.settings.ai.modelName || 'llama2';
+                    // 设置当前值或默认值
+                    const defaultModel = OLLAMA_MODELS['Llama 2'] as string;
+                    const currentModel = this.plugin.settings.ai.modelName || defaultModel;
                     dropdown.setValue(currentModel);
                     
                     dropdown.onChange(async (value) => {
@@ -310,6 +334,7 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                     });
                 });
 
+            // 如果选择了自定义模型，显示输入框
             if (this.plugin.settings.ai.modelName === 'custom') {
                 new Setting(containerEl)
                     .setName('自定义模型名称')

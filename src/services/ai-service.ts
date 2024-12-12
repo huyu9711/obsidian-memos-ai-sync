@@ -30,6 +30,16 @@ export const OPENAI_MODELS = {
     '自定义模型': 'custom'  // 已添加
 } as const;
 
+export const OLLAMA_MODELS = {
+    'Llama 2': 'llama2',
+    'Mistral': 'mistral',
+    'Mixtral': 'mixtral',
+    'CodeLlama': 'codellama',
+    'Phi': 'phi',
+    'Neural Chat': 'neural-chat',
+    '自定义模型': 'custom'
+} as const;
+
 export const MODEL_DESCRIPTIONS = {
     // Gemini Models
     'gemini-1.5-flash': '音频、图片、视频和文本',
@@ -38,7 +48,7 @@ export const MODEL_DESCRIPTIONS = {
     'gemini-1.0-pro': '文本 (将于 2025 年 2 月 15 日弃用)',
     'text-embedding-004': '文本',
     'aqa': '文本',
-    'custom': '自定义模型',  // 新增
+    'custom': '自定义模型',
     
     // OpenAI Models
     'gpt-4o': '标准版 GPT-4o，强大的推理能力',
@@ -47,7 +57,15 @@ export const MODEL_DESCRIPTIONS = {
     'gpt-4o-mini-2024-07-18': 'Mini 模型的稳定快照版本',
     'gpt-4o-realtime-preview': '实时预览版本，支持最新特性',
     'gpt-4o-realtime-preview-2024-10-01': '实时预览的稳定快照版本',
-    'chatgpt-4o-latest': 'ChatGPT 使用的最新版本，持续更新'
+    'chatgpt-4o-latest': 'ChatGPT 使用的最新版本，持续更新',
+
+    // Ollama Models
+    'llama2': 'Llama 2 - 通用大语言模型',
+    'mistral': 'Mistral - 高性能开源模型',
+    'mixtral': 'Mixtral - 混合专家模型',
+    'codellama': 'CodeLlama - 代码生成专用模型',
+    'phi': 'Phi - 轻量级模型',
+    'neural-chat': 'Neural Chat - 对话优化模型'
 } as const;
 
 const MAX_RETRIES = 3;
@@ -306,20 +324,95 @@ export class OpenAIService implements AIService {
     }
 }
 
+class OllamaService implements AIService {
+    private baseUrl: string;
+    private model: string;
+
+    constructor(baseUrl: string = 'http://localhost:11434', modelName?: string) {
+        this.baseUrl = baseUrl;
+        this.model = modelName || OLLAMA_MODELS['Llama 2'];
+    }
+
+    private async generateCompletion(prompt: string): Promise<string> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/generate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: this.model,
+                    prompt: prompt,
+                    stream: false,
+                    options: {
+                        temperature: 0.7,
+                        top_p: 0.9,
+                        max_tokens: 1000,
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Ollama API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.response;
+        } catch (error) {
+            console.error('Ollama API error:', error);
+            throw error;
+        }
+    }
+
+    async generateSummary(content: string, language = 'zh'): Promise<string> {
+        const prompt = `请用${language === 'zh' ? '中文' : 'English'}总结以下内容的要点：\n\n${content}`;
+        return retryWithBackoff(async () => {
+            const response = await this.generateCompletion(prompt);
+            return response.trim();
+        });
+    }
+
+    async generateTags(content: string): Promise<string[]> {
+        const prompt = `请为以下内容生成3-5个相关标签（不要带#号）：\n\n${content}`;
+        return retryWithBackoff(async () => {
+            const response = await this.generateCompletion(prompt);
+            return response.split(/[,，\s]+/).filter(Boolean);
+        });
+    }
+
+    async generateWeeklyDigest(contents: string[]): Promise<string> {
+        const combinedContent = contents.join('\n---\n');
+        const prompt = `请对以下一周的内容进行总结和分析，生成一份周报。要求：
+1. 主要工作内容和成果
+2. 重要事项和进展
+3. 问题和解决方案
+4. 下周计划和展望
+
+内容：\n${combinedContent}`;
+
+        return retryWithBackoff(async () => {
+            const response = await this.generateCompletion(prompt);
+            return response.trim();
+        });
+    }
+}
+
 export function createAIService(type: string, apiKey?: string, modelName?: string): AIService {
     switch (type.toLowerCase()) {
         case 'gemini':
             if (!apiKey) {
                 throw new Error('未配置 Gemini API 密钥');
             }
-            return new GeminiService(apiKey);
+            return new GeminiService(apiKey, modelName);
         case 'openai':
             if (!apiKey) {
-                throw new Error('未配置 API 密钥');
+                throw new Error('未配置 OpenAI API 密钥');
             }
             const service = new OpenAIService();
             service.initialize(apiKey, modelName);
             return service;
+        case 'ollama':
+            return new OllamaService(apiKey || 'http://localhost:11434', modelName);
         default:
             console.log('使用默认的空 AI 服务');
             return createDummyAIService();

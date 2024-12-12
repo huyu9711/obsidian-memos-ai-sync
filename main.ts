@@ -42,15 +42,25 @@ export default class MemosSyncPlugin extends Plugin {
         );
 
         let aiService: AIService | null = null;
-        if (this.settings.ai.enabled && this.settings.ai.apiKey) {
+        if (this.settings.ai.enabled) {
             try {
+                // 如果选择了自定义模型，使用自定义模型名称
                 const modelName = this.settings.ai.modelName === 'custom' 
                     ? this.settings.ai.customModelName 
                     : this.settings.ai.modelName;
+
+                // 对于 Ollama，使用 ollamaBaseUrl 作为 apiKey
+                const apiKey = this.settings.ai.modelType === 'ollama'
+                    ? this.settings.ai.ollamaBaseUrl
+                    : this.settings.ai.apiKey;
+
+                if (this.settings.ai.modelType !== 'ollama' && !apiKey) {
+                    throw new Error(`未配置 ${this.settings.ai.modelType.toUpperCase()} API 密钥`);
+                }
                     
                 aiService = createAIService(
                     this.settings.ai.modelType,
-                    this.settings.ai.apiKey,
+                    apiKey,
                     modelName
                 );
             } catch (error) {

@@ -31,6 +31,7 @@ export interface AISettings {
     modelName: string;
     customModelName: string;
     apiKey: string;
+    ollamaBaseUrl: string;
     weeklyDigest: boolean;
     autoTags: boolean;
     intelligentSummary: boolean;
@@ -62,6 +63,7 @@ export const DEFAULT_SETTINGS: MemosPluginSettings = {
         modelName: 'gpt-4o',
         customModelName: '',
         apiKey: '',
+        ollamaBaseUrl: 'http://localhost:11434',
         weeklyDigest: true,
         autoTags: true,
         intelligentSummary: true,
