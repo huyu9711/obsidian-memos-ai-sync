@@ -1,4 +1,4 @@
-import { MemoItem } from '../models/settings';
+import type { MemoItem } from '../models/settings';
 
 export interface MemosResponse {
     memos: MemoItem[];

@@ -1,11 +1,13 @@
 import { Plugin, Notice } from 'obsidian';
-import { MemosPluginSettings, DEFAULT_SETTINGS } from 'src/models/settings';
+import type { MemosPluginSettings } from 'src/models/settings';
+import { DEFAULT_SETTINGS } from 'src/models/settings';
 import { MemosSyncSettingTab } from 'src/ui/settings-tab';
 import { MemosService } from 'src/services/memos-service';
 import { FileService } from 'src/services/file-service';
 import { ContentService } from 'src/services/content-service';
 import { StatusService } from 'src/services/status-service';
-import { AIService, createAIService, createDummyAIService } from 'src/services/ai-service';
+import type { AIService } from 'src/services/ai-service';
+import { createAIService, createDummyAIService } from 'src/services/ai-service';
 
 export default class MemosSyncPlugin extends Plugin {
     settings: MemosPluginSettings;
@@ -76,7 +78,9 @@ export default class MemosSyncPlugin extends Plugin {
             this.settings.ai.enabled && aiService !== null,
             this.settings.ai.intelligentSummary,
             this.settings.ai.autoTags,
-            this.settings.ai.summaryLanguage
+            this.settings.ai.summaryLanguage,
+            this.app.vault,
+            this.settings.syncDirectory
         );
         
         this.fileService = new FileService(
@@ -109,23 +113,13 @@ export default class MemosSyncPlugin extends Plugin {
             }
 
             if (this.settings.ai.enabled && this.settings.ai.weeklyDigest) {
-                this.statusService.updateProgress(syncCount, '正在生成每周汇总...');
-                const weeklyDigest = await this.contentService.generateWeeklyDigest(memos);
-                if (weeklyDigest) {
-                    const weeklyDir = `${this.settings.syncDirectory}/weekly`;
-                    const weeklyFile = `${weeklyDir}/weekly-digest-${new Date().toISOString().slice(0, 10)}.md`;
-                    
-                    if (!(await this.app.vault.adapter.exists(weeklyDir))) {
-                        await this.app.vault.adapter.mkdir(weeklyDir);
-                    }
-                    
-                    await this.app.vault.create(weeklyFile, weeklyDigest);
-                }
+                this.statusService.updateProgress(syncCount, '正在生成每周总结...');
+                await this.contentService.generateWeeklyDigest(memos);
             }
 
-            this.statusService.setSuccess(`成功同步 ${syncCount} 条 memos`);
+            this.statusService.setSuccess(`同步完成，共同步 ${syncCount} 条记录`);
         } catch (error) {
-            console.error('Sync failed:', error);
+            console.error('同步失败:', error);
             this.statusService.setError(error.message);
         }
     }

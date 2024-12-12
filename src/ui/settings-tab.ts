@@ -1,6 +1,6 @@
-import { App, type Plugin, PluginSettingTab, Setting } from 'obsidian';
-import type { MemosPluginSettings, AIModelType } from '../models/settings';
-import type MemosSyncPlugin from '../models/plugin';
+import { App, PluginSettingTab, Setting } from 'obsidian';
+import type { AIModelType, MemosPluginSettings } from '../models/settings';
+import type MemosSyncPlugin from '../../main';
 import { GEMINI_MODELS, OPENAI_MODELS, OLLAMA_MODELS, MODEL_DESCRIPTIONS } from '../services/ai-service';
 
 export class MemosSyncSettingTab extends PluginSettingTab {
@@ -73,8 +73,8 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                     .setPlaceholder('例如：30')
                     .setValue(String(this.plugin.settings.autoSyncInterval))
                     .onChange(async (value) => {
-                        const interval = parseInt(value);
-                        if (!isNaN(interval) && interval > 0) {
+                        const interval = Number.parseInt(value, 10);
+                        if (Number.isFinite(interval) && interval > 0) {
                             this.plugin.settings.autoSyncInterval = interval;
                             await this.plugin.saveSettings();
                         }
@@ -88,8 +88,8 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                 .setPlaceholder('例如：100')
                 .setValue(String(this.plugin.settings.syncLimit))
                 .onChange(async (value) => {
-                    const limit = parseInt(value);
-                    if (!isNaN(limit) && limit > 0) {
+                    const limit = Number.parseInt(value, 10);
+                    if (Number.isFinite(limit) && limit > 0) {
                         this.plugin.settings.syncLimit = limit;
                         await this.plugin.saveSettings();
                     }
@@ -298,7 +298,7 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                         }));
             }
         } else if (modelType === 'ollama') {
-            // 添加 Ollama 服务��址设置
+            // 添加 Ollama 服务地址设置
             new Setting(containerEl)
                 .setName('Ollama 服务地址')
                 .setDesc('设置 Ollama 服务的地址（默认为 http://localhost:11434）')
@@ -316,11 +316,11 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                 .setDesc('选择要使用的 Ollama 模型')
                 .addDropdown(dropdown => {
                     // 添加所有模型选项
-                    Object.entries(OLLAMA_MODELS).forEach(([displayName, modelId]) => {
+                    for (const [displayName, modelId] of Object.entries(OLLAMA_MODELS)) {
                         if (typeof modelId === 'string') {
                             dropdown.addOption(modelId, `${displayName} - ${MODEL_DESCRIPTIONS[modelId] || modelId}`);
                         }
-                    });
+                    }
                     
                     // 设置当前值或默认值
                     const defaultModel = OLLAMA_MODELS['Llama 2'] as string;

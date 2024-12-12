@@ -1,5 +1,6 @@
-import { AIService } from './ai-service';
-import { MemoItem } from '../models/settings';
+import type { AIService } from './ai-service';
+import type { MemoItem } from '../models/settings';
+import type { Vault } from 'obsidian';
 
 export class ContentService {
     constructor(
@@ -7,7 +8,9 @@ export class ContentService {
         private aiEnabled: boolean,
         private enableSummary: boolean,
         private enableTags: boolean,
-        private summaryLanguage: string
+        private summaryLanguage: string,
+        private vault: Vault,
+        private syncDirectory: string
     ) {}
 
     private isContentSuitableForAI(content: string): boolean {
@@ -58,34 +61,70 @@ export class ContentService {
         return null;
     }
 
-    async generateWeeklyDigest(memos: MemoItem[]): Promise<string> {
+    private async weeklyDigestExists(year: string, week: string): Promise<boolean> {
+        const weeklyDigestPath = this.getWeeklyDigestPath(year, week);
+        return await this.vault.adapter.exists(weeklyDigestPath);
+    }
+
+    private getWeeklyDigestPath(year: string, week: string): string {
+        const weeklyDigestDir = `${this.syncDirectory}/${year}/weekly`;
+        const fileName = `第${week}周总结.md`;
+        return `${weeklyDigestDir}/${fileName}`;
+    }
+
+    private async ensureDirectoryExists(dirPath: string): Promise<void> {
+        if (!(await this.vault.adapter.exists(dirPath))) {
+            await this.vault.adapter.mkdir(dirPath);
+        }
+    }
+
+    async generateWeeklyDigest(memos: MemoItem[]): Promise<void> {
         if (!this.aiEnabled) {
-            return '';
+            console.log('AI 功能未启用，跳过周总结生成');
+            return;
         }
 
         const suitableMemos = memos.filter(memo => this.isContentSuitableForAI(memo.content));
         if (suitableMemos.length === 0) {
-            return '本周没有足够的内容生成摘要。';
+            console.log('没有足够的内容生成周总结');
+            return;
         }
 
         const weekGroups = this.groupMemosByWeek(suitableMemos);
-        let weeklyContent = '';
-
+        
         for (const [weekKey, weekMemos] of Object.entries(weekGroups)) {
+            const [year, week] = weekKey.split('-W');
+            
+            // 检查该周的总结是否已存在
+            if (await this.weeklyDigestExists(year, week)) {
+                console.log(`第 ${week} 周的总结已存在，跳过生成`);
+                continue;
+            }
+
+            // 确保周总结目录存在
+            const weeklyDigestDir = `${this.syncDirectory}/${year}/weekly`;
+            await this.ensureDirectoryExists(weeklyDigestDir);
+
+            // 生成该周的总结
             const contents = weekMemos.map(memo => memo.content);
             const digest = await this.aiService.generateWeeklyDigest(contents);
             
             if (digest?.trim()) {
-                const [year, week] = weekKey.split('-W');
-                weeklyContent += this.formatWeeklyDigest(digest, year, week, weekMemos.length);
+                const weeklyContent = this.formatWeeklyDigest(digest, year, week, weekMemos.length);
+                const weeklyDigestPath = this.getWeeklyDigestPath(year, week);
+                
+                try {
+                    await this.vault.create(weeklyDigestPath, weeklyContent);
+                    console.log(`成功生成第 ${week} 周总结: ${weeklyDigestPath}`);
+                } catch (error) {
+                    console.error(`生成第 ${week} 周总结失败:`, error);
+                }
             }
         }
-
-        return weeklyContent || '本周没有生成摘要。';
     }
 
     private formatWeeklyDigest(digest: string, year: string, week: string, memoCount: number): string {
-        const weekRange = this.getWeekDateRange(parseInt(year), parseInt(week));
+        const weekRange = this.getWeekDateRange(Number.parseInt(year, 10), Number.parseInt(week, 10));
         return `# 📅 第 ${week} 周回顾 (${weekRange})
 
 ## 🌟 本周亮点
@@ -119,7 +158,7 @@ ${digest}
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
         
-        const formatDate = (date: Date) => {
+        const formatDate = (date: Date): string => {
             return `${date.getMonth() + 1}月${date.getDate()}日`;
         };
         

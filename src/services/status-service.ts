@@ -1,6 +1,6 @@
 import { Notice, setIcon } from 'obsidian';
 
-export type SyncStatus = 'idle' | 'syncing' | 'error' | 'success';
+type SyncStatus = 'idle' | 'syncing' | 'error' | 'success';
 
 export class StatusService {
     private statusBarItem: HTMLElement;
