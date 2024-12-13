@@ -6,19 +6,20 @@ on:
       - "*"
 
 env:
-  PLUGIN_NAME: obsidian-memos-sync
+  PLUGIN_NAME: memos-ai-sync
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Use Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: "18.x"
+          cache: 'npm'
 
       - name: Build plugin
         run: |
@@ -35,4 +36,4 @@ jobs:
           gh release create "$tag" \
             --title="$tag" \
             --draft \
-            main.js manifest.json styles.css
+            main.js manifest.json styles.css LICENSE
