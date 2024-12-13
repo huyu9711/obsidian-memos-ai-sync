@@ -32,8 +32,8 @@ jobs:
         run: |
           tag="${GITHUB_REF#refs/tags/}"
           
-          # Create release
+          # 创建 release
           gh release create "$tag" \
             --title="$tag" \
-            --draft \
+            --draft=false \
             main.js manifest.json styles.css LICENSE
