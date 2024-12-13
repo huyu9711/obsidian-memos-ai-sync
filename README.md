@@ -1,5 +1,7 @@
 # Obsidian Memos Sync Plugin
 
+[English](README_EN.md) | 简体中文
+
 将 Memos 内容同步到 Obsidian 的插件，提供无缝集成体验。
 
 # 界面预览
@@ -48,6 +50,31 @@
 ```
 目前已实现openai、gemini、ollama调用，claude还没测试。
 ```
+
+#### AI 设置说明
+1. **选择 AI 提供商**
+   - OpenAI
+   - Google Gemini
+   - Ollama（本地部署）
+   - Claude（开发中）
+
+2. **配置说明**
+   - OpenAI 设置
+     - API Key：填入您的 OpenAI API 密钥
+     - 模型选择：支持 gpt-3.5-turbo、gpt-4 等
+   - Gemini 设置
+     - API Key：填入您的 Google API 密钥
+     - 模型：gemini-pro
+   - Ollama 设置
+     - 服务器地址：例如 http://localhost:11434
+     - 模型：支持 llama2、mistral 等
+
+3. **功能开关**
+   - 自动总结：对每条 memo 生成摘要
+   - 智能标签：自动推荐相关标签
+   - 周报生成：自动生成每周总结
+   - 提示词配置：可自定义 AI 提示词
+
 - 自动生成内容摘要
 - 智能标签推荐
 - 每周内容汇总
