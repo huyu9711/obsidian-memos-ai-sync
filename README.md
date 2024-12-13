@@ -7,12 +7,16 @@
 ![设置界面](/examples/example01.png)
 ## AI 增强
 可以进行memos的总结和自动打标签，便于管理
+
+### 原memos内容
+![原memos内容](/examples/example03.png)
+
+### AI增强后内容
 ![AI 增强](/examples/example02.png)
 
 ## AI 周总结
 对同步的内容进行统一梳理，形成每周总结，便于review。
-### 原memos内容
-![原memos内容](/examples/example03.png)
+
 ### AI 周总结内容
 ![AI 周总结](/examples/example04.png)
 
