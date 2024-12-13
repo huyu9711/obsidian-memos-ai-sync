@@ -138,7 +138,7 @@ sync_directory/
 - **Access Token**: 您的 Memos API 访问令牌
 - **同步目录**: Memos 内容在 Obsidian 中的存储位置
 
-### 可选设置
+### 可选���置
 - **同步模式**: 选择手动或自动同步
 - **同步间隔**: 设置自动同步的频率（如果启用）
 - **同步限制**: 一次同步的最大条目数
@@ -180,7 +180,7 @@ obsidian-memos-sync/
   - `plugin.ts`: 定义插件接口
 
 - **services**: 核心服务实现
-  - `memos-service.ts`: 处理与 Memos API 的所有交互
+  - `memos-service.ts`: 处理与 Memos API 的所���交互
   - `file-service.ts`: 处理文件系统操作和内容格式化
 
 - **ui**: 用户界面组件
@@ -216,3 +216,13 @@ obsidian-memos-sync/
 ## 许可证
 
 MIT
+
+## 支持我的工作
+
+如果这个插件对您有帮助，欢迎请我喝杯咖啡 ☕️ 这会让我更有动力持续改进这个插件！
+
+<a href="https://www.buymeacoffee.com/leoleexhu" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" >
+</a>
+
+您的每一份支持都是我继续开发的动力！ 🚀

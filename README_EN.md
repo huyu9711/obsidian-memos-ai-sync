@@ -215,3 +215,13 @@ If you encounter issues or have suggestions:
 ## License
 
 MIT 
+
+## Support My Work
+
+If you find this plugin helpful, consider buying me a coffee ☕️ It really motivates me to keep improving this plugin!
+
+<a href="https://www.buymeacoffee.com/leoleexhu" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" >
+</a>
+
+Your support keeps me caffeinated and coding! 🚀
