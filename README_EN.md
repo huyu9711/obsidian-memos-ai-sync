@@ -72,7 +72,7 @@ Currently supports OpenAI, Gemini, and Ollama integration. Claude support is und
    - Auto Summary: Generate summary for each memo
    - Smart Tags: Auto-recommend relevant tags
    - Weekly Report: Auto-generate weekly summaries
-   - Prompt Configuration: Customize AI prompts
+   - Prompt Configuration: Customize AI prompts (under development)
 
 - Auto-generate content summaries
 - Smart tag recommendations
