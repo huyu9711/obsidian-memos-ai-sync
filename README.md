@@ -2,6 +2,19 @@
 
 将 Memos 内容同步到 Obsidian 的插件，提供无缝集成体验。
 
+# 界面预览
+## 设置界面
+![设置界面](/examples/example01.png)
+## AI 增强
+![AI 增强](/examples/example02.png)
+
+## AI 周总结
+### 原memos内容
+![原memos内容](/examples/example03.png)
+### AI 周总结内容
+![AI 周总结](/examples/example04.png)
+
+
 ## 功能特点
 
 ### 核心功能
@@ -129,7 +142,7 @@ obsidian-memos-sync/
   - `settings.ts`: 定义插件设置和数据模型
   - `plugin.ts`: 定义插件接口
 
-- **services**: 核心功能实现
+- **services**: 核心服务实现
   - `memos-service.ts`: 处理与 Memos API 的所有交互
   - `file-service.ts`: 处理文件系统操作和内容格式化
 
@@ -137,9 +150,8 @@ obsidian-memos-sync/
   - `settings-tab.ts`: 实现插件设置界面
 
 ## 兼容性
-- 支持 Memos 版本：最高至 0.16.3
-- Memos v0.17.0 及以上版本需等待更新（由于 API 变更）
-- 推荐使用 Memos v0.16.3 以获得最佳兼容性
+- 支持 Memos 版本：最高至 0.22.5
+- 推荐使用 Memos v0.22.5 以获得最佳兼容性
 
 ## 故障排除
 
