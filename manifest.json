@@ -6,5 +6,6 @@
   "description": "Sync Memos content with AI enhancement",
   "author": "leoleelxh",
   "authorUrl": "https://github.com/leoleelxh",
-  "isDesktopOnly": false
+  "isDesktopOnly": false,
+  "repo": "leoleelxh/obsidian-memos-ai-sync"
 }
