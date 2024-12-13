@@ -3,7 +3,7 @@
   "name": "Memos Sync",
   "version": "1.0.0",
   "minAppVersion": "0.15.0",
-  "description": "Sync Memos content to Obsidian",
+  "description": "Sync Memos content to Obsidian with AI enhancement",
   "author": "leoleelxh",
   "authorUrl": "https://github.com/leoleelxh",
   "isDesktopOnly": false
