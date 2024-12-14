@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 - 修复了 GitHub Actions release 工作流配置
   - 移除了 `--draft` 标志，确保 release 直接发布
   - 修复了 Obsidian 插件验证器无法找到 release 的问题
+- 优化了代码质量
+  - 修复了类型检查相关问题
+  - 改进了日志输出，减少不必要的控制台输出
+  - 增强了类型安全性
 
 ### Changed
 - 更新了版本相关文件
