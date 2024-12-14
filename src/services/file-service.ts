@@ -1,4 +1,5 @@
-import type { TFile, Vault } from 'obsidian';
+import { TFile } from 'obsidian';
+import type { Vault } from 'obsidian';
 import type { MemoItem } from '../models/settings';
 import type { MemosService } from './memos-service';
 
@@ -50,7 +51,6 @@ export class FileService {
             ...toParts.slice(i)
         ].join('/');
 
-        console.log(`Relative path from ${fromPath} to ${toPath}: ${relativePath}`);
         return relativePath;
     }
 
@@ -209,14 +209,15 @@ export class FileService {
             try {
                 const exists = await this.vault.adapter.exists(filePath);
                 if (exists) {
-                    const file = this.vault.getAbstractFileByPath(filePath) as TFile;
-                    if (file) {
-                        await this.vault.modify(file, documentContent);
+                    const abstractFile = this.vault.getAbstractFileByPath(filePath);
+                    if (abstractFile instanceof TFile) {
+                        await this.vault.modify(abstractFile, documentContent);
+                    } else {
+                        throw new Error('Invalid file type');
                     }
                 } else {
                     await this.vault.create(filePath, documentContent);
                 }
-                console.log(`Saved memo to: ${filePath}`);
             } catch (error) {
                 console.error(`Failed to save memo to file: ${filePath}`, error);
                 throw new Error(`Failed to save memo: ${error.message}`);

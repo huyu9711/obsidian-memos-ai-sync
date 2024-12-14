@@ -80,13 +80,11 @@ export class ContentService {
 
     async generateWeeklyDigest(memos: MemoItem[]): Promise<void> {
         if (!this.aiEnabled) {
-            console.log('AI 功能未启用，跳过周总结生成');
             return;
         }
 
         const suitableMemos = memos.filter(memo => this.isContentSuitableForAI(memo.content));
         if (suitableMemos.length === 0) {
-            console.log('没有足够的内容生成周总结');
             return;
         }
 
@@ -95,17 +93,13 @@ export class ContentService {
         for (const [weekKey, weekMemos] of Object.entries(weekGroups)) {
             const [year, week] = weekKey.split('-W');
             
-            // 检查该周的总结是否已存在
             if (await this.weeklyDigestExists(year, week)) {
-                console.log(`第 ${week} 周的总结已存在，跳过生成`);
                 continue;
             }
 
-            // 确保周总结目录存在
             const weeklyDigestDir = `${this.syncDirectory}/${year}/weekly`;
             await this.ensureDirectoryExists(weeklyDigestDir);
 
-            // 生成该周的总结
             const contents = weekMemos.map(memo => memo.content);
             const digest = await this.aiService.generateWeeklyDigest(contents);
             
@@ -115,7 +109,6 @@ export class ContentService {
                 
                 try {
                     await this.vault.create(weeklyDigestPath, weeklyContent);
-                    console.log(`成功生成第 ${week} 周总结: ${weeklyDigestPath}`);
                 } catch (error) {
                     console.error(`生成第 ${week} 周总结失败:`, error);
                 }
