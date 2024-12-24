@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { Notice } from 'obsidian';
 import { Logger } from './logger';
@@ -7,6 +7,7 @@ export interface AIService {
     generateSummary(content: string, language?: string): Promise<string>;
     generateTags(content: string): Promise<string[]>;
     generateWeeklyDigest(contents: string[]): Promise<string>;
+    initialize?(): void;
 }
 
 export const GEMINI_MODELS = {
@@ -45,7 +46,7 @@ export const MODEL_DESCRIPTIONS = {
     // Gemini Models
     'gemini-1.5-flash': '音频、图片、视频和文本',
     'gemini-1.5-flash-8b': '音频、图片、视频和文本',
-    'gemini-1.5-pro': '音频、图片、视频和文本',
+    'gemini-1.5-pro': '音频、图片���视频和文本',
     'gemini-1.0-pro': '文本 (将于 2025 年 2 月 15 日弃用)',
     'text-embedding-004': '文本',
     'aqa': '文本',
@@ -105,7 +106,7 @@ async function retryWithBackoff<T>(
 }
 
 class GeminiService implements AIService {
-    private model: GoogleGenerativeAI;
+    private model: GenerativeModel;
     private logger: Logger;
 
     constructor(apiKey: string, modelName?: string) {
@@ -114,7 +115,7 @@ class GeminiService implements AIService {
         this.logger = new Logger('GeminiService');
     }
 
-    initialize() {
+    initialize(): void {
         this.logger.debug('Gemini 服务初始化成功，使用模型:', this.model);
     }
 
@@ -134,8 +135,8 @@ class GeminiService implements AIService {
         const prompt = `请用${language === 'zh' ? '中文' : 'English'}总结以下内容的要点：\n\n${content}`;
         return retryWithBackoff(async () => {
             const result = await this.model.generateContent(prompt);
-            const text = result.response.text();
-            return text.trim();
+            const response = await result.response;
+            return response.text().trim();
         });
     }
 
@@ -143,8 +144,8 @@ class GeminiService implements AIService {
         const prompt = `请为以下内容生成3-5个相关标签（不要带#号）：\n\n${content}`;
         return retryWithBackoff(async () => {
             const result = await this.model.generateContent(prompt);
-            const text = result.response.text();
-            return text.split(/[,，\s]+/).filter(Boolean);
+            const response = await result.response;
+            return response.text().split(/[,，\s]+/).filter(Boolean);
         });
     }
 
@@ -160,8 +161,8 @@ class GeminiService implements AIService {
         
         return retryWithBackoff(async () => {
             const result = await this.model.generateContent(prompt);
-            const text = result.response.text();
-            return text.trim();
+            const response = await result.response;
+            return response.text().trim();
         });
     }
 }
@@ -285,7 +286,7 @@ export class OpenAIService implements AIService {
                 throw new Error('API 密钥验证失败');
             }
 
-            // 如果是自定义模型，使�� customModelName
+            // 如果是自定义模型，使用 customModelName
             this.model = modelName || OPENAI_MODELS['GPT-4o'];
             this.logger.debug('OpenAI 服务初始化成功，使用模型:', this.model);
             new Notice(`AI 服务初始化成功`);
@@ -404,7 +405,7 @@ class OllamaService implements AIService {
     }
 
     async generateSummary(content: string, language = 'zh'): Promise<string> {
-        const prompt = `请用${language === 'zh' ? '中文' : 'English'}总结以下内��的要点：\n\n${content}`;
+        const prompt = `请用${language === 'zh' ? '中文' : 'English'}总结以下内容的要点：\n\n${content}`;
         return retryWithBackoff(async () => {
             const response = await this.generateCompletion(prompt);
             return response.trim();
