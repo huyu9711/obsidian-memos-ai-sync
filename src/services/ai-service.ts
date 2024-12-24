@@ -1,4 +1,5 @@
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import type { GenerativeModel } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { Notice } from 'obsidian';
 import { Logger } from './logger';
@@ -7,7 +8,7 @@ export interface AIService {
     generateSummary(content: string, language?: string): Promise<string>;
     generateTags(content: string): Promise<string[]>;
     generateWeeklyDigest(contents: string[]): Promise<string>;
-    initialize?(apiKey?: string, modelName?: string): Promise<void>;
+    initialize(apiKey: string, modelName?: string): Promise<void>;
 }
 
 export const GEMINI_MODELS = {
@@ -45,7 +46,7 @@ export const OLLAMA_MODELS = {
 export const MODEL_DESCRIPTIONS = {
     // Gemini Models
     'gemini-1.5-flash': '音频、图片、视频和文本',
-    'gemini-1.5-flash-8b': '音频、图片、视频和文本',
+    'gemini-1.5-flash-8b': '音频、图片、视频���文本',
     'gemini-1.5-pro': '音频、图片、视频和文本',
     'gemini-1.0-pro': '文本 (将于 2025 年 2 月 15 日弃用)',
     'text-embedding-004': '文本',
@@ -422,7 +423,7 @@ class OllamaService implements AIService {
 
     async generateWeeklyDigest(contents: string[]): Promise<string> {
         const combinedContent = contents.join('\n---\n');
-        const prompt = `请对以下一周的内容进行总结和分析，生成一份周报。要求：
+        const prompt = `请对以下一��的内容进行总结和分析，生成一份周报。要求：
 1. 主要工作内容和成果
 2. 重要事项和进展
 3. 问题和解决方案
@@ -437,39 +438,50 @@ class OllamaService implements AIService {
     }
 }
 
-export function createAIService(type: string, apiKey?: string, modelName?: string): AIService {
+export function createAIService(type: string, apiKey: string, modelName?: string): AIService {
     const serviceType = type.toLowerCase();
-    let service: AIService;
-
+    
     switch (serviceType) {
-        case 'gemini':
-            if (!apiKey) {
-                throw new Error('未配置 Gemini API 密钥');
-            }
-            service = new GeminiService(apiKey, modelName);
-            break;
-        case 'openai':
-            if (!apiKey) {
-                throw new Error('未配置 OpenAI API 密钥');
-            }
-            service = new OpenAIService();
-            service.initialize(apiKey, modelName);
-            break;
-        case 'ollama':
-            service = new OllamaService(apiKey || 'http://localhost:11434', modelName);
-            break;
-        default:
-            console.log('使用默认的空 AI 服务');
-            service = createDummyAIService();
+        case 'gemini': {
+            const service = new GeminiService(apiKey, modelName);
+            void service.initialize(apiKey, modelName);
+            return service;
+        }
+        case 'openai': {
+            const service = new OpenAIService();
+            void service.initialize(apiKey, modelName);
+            return service;
+        }
+        case 'ollama': {
+            const service = new OllamaService(apiKey || 'http://localhost:11434', modelName);
+            void service.initialize(apiKey, modelName);
+            return service;
+        }
+        default: {
+            const service = createDummyAIService();
+            void service.initialize('', '');
+            return service;
+        }
     }
-
-    return service;
 }
 
 export function createDummyAIService(): AIService {
+    const logger = new Logger('DummyAIService');
     return {
-        generateSummary: async () => '',
-        generateTags: async () => [],
-        generateWeeklyDigest: async () => ''
+        async generateSummary(): Promise<string> {
+            logger.debug('使用空 AI 服务');
+            return '';
+        },
+        async generateTags(): Promise<string[]> {
+            logger.debug('使用空 AI 服务');
+            return [];
+        },
+        async generateWeeklyDigest(): Promise<string> {
+            logger.debug('使用空 AI 服务');
+            return '';
+        },
+        async initialize(): Promise<void> {
+            logger.debug('初始化空 AI 服务');
+        }
     };
 } 
