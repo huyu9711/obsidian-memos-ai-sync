@@ -1,4 +1,5 @@
 import type { MemoItem } from '../models/settings';
+import { Logger } from './logger';
 
 export interface MemosResponse {
     memos: MemoItem[];
@@ -6,17 +7,21 @@ export interface MemosResponse {
 }
 
 export class MemosService {
+    private logger: Logger;
+
     constructor(
         private apiUrl: string,
         private accessToken: string,
         private syncLimit: number
-    ) {}
+    ) {
+        this.logger = new Logger('MemosService');
+    }
 
     async fetchAllMemos(): Promise<MemoItem[]> {
         try {
-            console.log('开始获取 memos，API URL:', this.apiUrl);
-            console.log('Access Token:', this.accessToken ? '已设置' : '未设置');
-            console.log('同步限制:', this.syncLimit, '条');
+            this.logger.debug('开始获取 memos，API URL:', this.apiUrl);
+            this.logger.debug('Access Token:', this.accessToken ? '已设置' : '未设置');
+            this.logger.debug('同步限制:', this.syncLimit, '条');
 
             const allMemos: MemoItem[] = [];
             let pageToken: string | undefined;
@@ -42,7 +47,7 @@ export class MemosService {
                 }
 
                 const finalUrl = `${url}?${params.toString()}`;
-                console.log('请求 URL:', finalUrl);
+                this.logger.debug('请求 URL:', finalUrl);
 
                 const response = await fetch(finalUrl, {
                     method: 'GET',
@@ -58,7 +63,7 @@ export class MemosService {
                 }
 
                 const responseData = await response.json();
-                console.log('API 响应数据:', responseData);
+                this.logger.debug('API 响应数据:', responseData);
 
                 if (!responseData || !Array.isArray(responseData.memos)) {
                     throw new Error('响应格式无效: 返回数据不包含 memos 数组');
@@ -75,7 +80,7 @@ export class MemosService {
                 const remainingCount = this.syncLimit - allMemos.length;
                 const neededCount = Math.min(memos.length, remainingCount);
                 allMemos.push(...memos.slice(0, neededCount));
-                console.log(`本次获取 ${neededCount} 条 memos，总计: ${allMemos.length}/${this.syncLimit}`);
+                this.logger.debug(`本次获取 ${neededCount} 条 memos，总计: ${allMemos.length}/${this.syncLimit}`);
 
                 // 如果已经达到同步限制或没有下一页，就退出
                 if (allMemos.length >= this.syncLimit || !pageToken) {
@@ -84,12 +89,12 @@ export class MemosService {
 
             } while (true);
 
-            console.log(`最终返回 ${allMemos.length} 条 memos`);
+            this.logger.debug(`最终返回 ${allMemos.length} 条 memos`);
             return allMemos.sort((a, b) => 
                 new Date(b.createTime).getTime() - new Date(a.createTime).getTime()
             );
         } catch (error) {
-            console.error('获取 memos 失败:', error);
+            this.logger.error('获取 memos 失败:', error);
             if (error instanceof TypeError && error.message === 'Failed to fetch') {
                 throw new Error(`网络错误: 无法连接到 ${this.apiUrl}。请检查 URL 是否正确且可访问。`);
             }
@@ -102,7 +107,7 @@ export class MemosService {
             const resourceId = resource.name.split('/').pop() || resource.name;
             const resourceUrl = `${this.apiUrl.replace('/api/v1', '')}/file/resources/${resourceId}/${encodeURIComponent(resource.filename)}`;
 
-            console.log(`Downloading resource: ${resourceUrl}`);
+            this.logger.debug(`正在下载资源: ${resourceUrl}`);
 
             const response = await fetch(resourceUrl, {
                 headers: {
@@ -111,13 +116,13 @@ export class MemosService {
             });
 
             if (!response.ok) {
-                console.error(`Failed to download resource: ${response.status} ${response.statusText}`);
+                this.logger.error(`Failed to download resource: ${response.status} ${response.statusText}`);
                 return null;
             }
 
             return await response.arrayBuffer();
         } catch (error) {
-            console.error('Error downloading resource:', error);
+            this.logger.error('Error downloading resource:', error);
             return null;
         }
     }

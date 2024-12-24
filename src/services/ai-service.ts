@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { Notice } from 'obsidian';
+import { Logger } from './logger';
 
 export interface AIService {
     generateSummary(content: string, language?: string): Promise<string>;
@@ -84,9 +85,9 @@ async function retryWithBackoff<T>(
         try {
             return await operation();
         } catch (error) {
-            if (error.message.includes('429')) {
+            if (error instanceof Error && error.message.includes('429')) {
                 // 配额限制错误，等待更长时间
-                const delay = initialDelay * Math.pow(2, i);
+                const delay = initialDelay * (2 ** i);
                 console.log(`配额限制，等待 ${delay}ms 后重试...`);
                 await sleep(delay);
                 continue;
@@ -95,7 +96,7 @@ async function retryWithBackoff<T>(
                 throw error; // 最后一次重试失败，抛出错误
             }
             // 其他错误，继续重试
-            const delay = initialDelay * Math.pow(2, i);
+            const delay = initialDelay * (2 ** i);
             console.log(`操作失败，等待 ${delay}ms 后重试...`);
             await sleep(delay);
         }
@@ -104,11 +105,29 @@ async function retryWithBackoff<T>(
 }
 
 class GeminiService implements AIService {
-    private model: any;
+    private model: GoogleGenerativeAI;
+    private logger: Logger;
 
     constructor(apiKey: string, modelName?: string) {
         const genAI = new GoogleGenerativeAI(apiKey);
         this.model = genAI.getGenerativeModel({ model: modelName || GEMINI_MODELS['Gemini 1.5 Flash'] });
+        this.logger = new Logger('GeminiService');
+    }
+
+    initialize() {
+        this.logger.debug('Gemini 服务初始化成功，使用模型:', this.model);
+    }
+
+    private async handleRateLimit(error: Error, retryCount: number): Promise<number> {
+        const delay = Math.min(1000 * (2 ** retryCount), 30000);
+        this.logger.warn(`配额限制，等待 ${delay}ms 后重试...`);
+        return delay;
+    }
+
+    private async handleError(error: Error, retryCount: number): Promise<number> {
+        const delay = Math.min(1000 * (2 ** retryCount), 30000);
+        this.logger.error(`操作失败，等待 ${delay}ms 后重试...`, error);
+        return delay;
     }
 
     async generateSummary(content: string, language = 'zh'): Promise<string> {
@@ -151,6 +170,7 @@ export class OpenAIService implements AIService {
     private client: OpenAI;
     private model: string;
     private encryptionKey: Uint8Array;
+    private logger: Logger;
 
     // 生成随机 IV
     private async generateIV(): Promise<Uint8Array> {
@@ -235,6 +255,7 @@ export class OpenAIService implements AIService {
 
     constructor() {
         this.encryptionKey = crypto.getRandomValues(new Uint8Array(32));
+        this.logger = new Logger('OpenAIService');
     }
 
     async initialize(apiKey: string, modelName?: string) {
@@ -264,9 +285,9 @@ export class OpenAIService implements AIService {
                 throw new Error('API 密钥验证失败');
             }
 
-            // 如果是自定义模型，使用 customModelName
+            // 如果是自定义模型，使�� customModelName
             this.model = modelName || OPENAI_MODELS['GPT-4o'];
-            console.log('OpenAI 服务初始化成功，使用模型:', this.model);
+            this.logger.debug('OpenAI 服务初始化成功，使用模型:', this.model);
             new Notice(`AI 服务初始化成功`);
         } catch (error) {
             console.error('OpenAI 服务初始化失败:', error);
@@ -327,10 +348,28 @@ export class OpenAIService implements AIService {
 class OllamaService implements AIService {
     private baseUrl: string;
     private model: string;
+    private logger: Logger;
 
-    constructor(baseUrl: string = 'http://localhost:11434', modelName?: string) {
+    constructor(baseUrl = 'http://localhost:11434', modelName?: string) {
         this.baseUrl = baseUrl;
         this.model = modelName || OLLAMA_MODELS['Llama 2'];
+        this.logger = new Logger('OllamaService');
+    }
+
+    initialize() {
+        this.logger.debug('Ollama 服务初始化成功，使用模型:', this.model);
+    }
+
+    private async handleRateLimit(error: Error, retryCount: number): Promise<number> {
+        const delay = Math.min(1000 * (2 ** retryCount), 30000);
+        this.logger.warn(`配额限制，等待 ${delay}ms 后重试...`);
+        return delay;
+    }
+
+    private async handleError(error: Error, retryCount: number): Promise<number> {
+        const delay = Math.min(1000 * (2 ** retryCount), 30000);
+        this.logger.error(`操作失败，等待 ${delay}ms 后重试...`, error);
+        return delay;
     }
 
     private async generateCompletion(prompt: string): Promise<string> {
@@ -365,7 +404,7 @@ class OllamaService implements AIService {
     }
 
     async generateSummary(content: string, language = 'zh'): Promise<string> {
-        const prompt = `请用${language === 'zh' ? '中文' : 'English'}总结以下内容的要点：\n\n${content}`;
+        const prompt = `请用${language === 'zh' ? '中文' : 'English'}总结以下内��的要点：\n\n${content}`;
         return retryWithBackoff(async () => {
             const response = await this.generateCompletion(prompt);
             return response.trim();
@@ -398,25 +437,32 @@ class OllamaService implements AIService {
 }
 
 export function createAIService(type: string, apiKey?: string, modelName?: string): AIService {
-    switch (type.toLowerCase()) {
+    const serviceType = type.toLowerCase();
+    let service: AIService;
+
+    switch (serviceType) {
         case 'gemini':
             if (!apiKey) {
                 throw new Error('未配置 Gemini API 密钥');
             }
-            return new GeminiService(apiKey, modelName);
+            service = new GeminiService(apiKey, modelName);
+            break;
         case 'openai':
             if (!apiKey) {
                 throw new Error('未配置 OpenAI API 密钥');
             }
-            const service = new OpenAIService();
+            service = new OpenAIService();
             service.initialize(apiKey, modelName);
-            return service;
+            break;
         case 'ollama':
-            return new OllamaService(apiKey || 'http://localhost:11434', modelName);
+            service = new OllamaService(apiKey || 'http://localhost:11434', modelName);
+            break;
         default:
             console.log('使用默认的空 AI 服务');
-            return createDummyAIService();
+            service = createDummyAIService();
     }
+
+    return service;
 }
 
 export function createDummyAIService(): AIService {

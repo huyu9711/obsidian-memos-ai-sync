@@ -2,13 +2,18 @@ import { TFile } from 'obsidian';
 import type { Vault } from 'obsidian';
 import type { MemoItem } from '../models/settings';
 import type { MemosService } from './memos-service';
+import { Logger } from './logger';
 
 export class FileService {
+    private logger: Logger;
+
     constructor(
         private vault: Vault,
         private syncDirectory: string,
         private memosService: MemosService
-    ) {}
+    ) {
+        this.logger = new Logger('FileService');
+    }
 
     private formatDateTime(date: Date, format: 'filename' | 'display' = 'display'): string {
         const year = date.getFullYear();
@@ -117,7 +122,7 @@ export class FileService {
             }
             return false;
         } catch (error) {
-            console.error('检查 memo 是否存在时出错:', error);
+            this.logger.error('检查 memo 是否存在时出错:', error instanceof Error ? error.message : String(error));
             return false;
         }
     }
@@ -126,7 +131,7 @@ export class FileService {
         try {
             const exists = await this.isMemoExists(memo.name);
             if (exists) {
-                console.log(`Memo ${memo.name} 已存在，跳过`);
+                this.logger.debug(`Memo ${memo.name} 已存在，跳过`);
                 return;
             }
 
@@ -223,8 +228,8 @@ export class FileService {
                 throw new Error(`Failed to save memo: ${error.message}`);
             }
         } catch (error) {
-            console.error('保存 memo 到文件时出错:', error);
-            throw new Error(`Failed to save memo: ${error.message}`);
+            this.logger.error('保存 memo 到文件时出错:', error instanceof Error ? error.message : String(error));
+            throw new Error(`保存 memo 失败: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 } 
