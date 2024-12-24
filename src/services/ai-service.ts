@@ -7,7 +7,7 @@ export interface AIService {
     generateSummary(content: string, language?: string): Promise<string>;
     generateTags(content: string): Promise<string[]>;
     generateWeeklyDigest(contents: string[]): Promise<string>;
-    initialize?(): void;
+    initialize?(apiKey?: string, modelName?: string): Promise<void>;
 }
 
 export const GEMINI_MODELS = {
@@ -46,7 +46,7 @@ export const MODEL_DESCRIPTIONS = {
     // Gemini Models
     'gemini-1.5-flash': '音频、图片、视频和文本',
     'gemini-1.5-flash-8b': '音频、图片、视频和文本',
-    'gemini-1.5-pro': '音频、图片���视频和文本',
+    'gemini-1.5-pro': '音频、图片、视频和文本',
     'gemini-1.0-pro': '文本 (将于 2025 年 2 月 15 日弃用)',
     'text-embedding-004': '文本',
     'aqa': '文本',
@@ -115,7 +115,7 @@ class GeminiService implements AIService {
         this.logger = new Logger('GeminiService');
     }
 
-    initialize(): void {
+    async initialize(apiKey?: string, modelName?: string): Promise<void> {
         this.logger.debug('Gemini 服务初始化成功，使用模型:', this.model);
     }
 
@@ -259,7 +259,7 @@ export class OpenAIService implements AIService {
         this.logger = new Logger('OpenAIService');
     }
 
-    async initialize(apiKey: string, modelName?: string) {
+    async initialize(apiKey?: string, modelName?: string): Promise<void> {
         try {
             if (!apiKey) {
                 throw new Error('API 密钥不能为空');
@@ -291,8 +291,8 @@ export class OpenAIService implements AIService {
             this.logger.debug('OpenAI 服务初始化成功，使用模型:', this.model);
             new Notice(`AI 服务初始化成功`);
         } catch (error) {
-            console.error('OpenAI 服务初始化失败:', error);
-            new Notice(`AI 服务初始化失败: ${error.message}`);
+            this.logger.error('OpenAI 服务初始化失败:', error);
+            new Notice(`AI 服务初始化失败: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }
@@ -357,7 +357,7 @@ class OllamaService implements AIService {
         this.logger = new Logger('OllamaService');
     }
 
-    initialize() {
+    async initialize(apiKey?: string, modelName?: string): Promise<void> {
         this.logger.debug('Ollama 服务初始化成功，使用模型:', this.model);
     }
 
