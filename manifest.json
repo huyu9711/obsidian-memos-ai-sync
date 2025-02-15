@@ -1,11 +1,10 @@
 {
   "id": "memos-ai-sync",
-  "name": "Memos AI Sync",
+  "name": "Memos Sync & AI Enhancement",
   "version": "1.0.2",
   "minAppVersion": "1.4.0",
   "description": "Sync Memos content with AI enhancement",
   "author": "leoleelxh",
   "authorUrl": "https://github.com/leoleelxh",
-  "isDesktopOnly": false,
-  "repo": "leoleelxh/obsidian-memos-ai-sync"
+  "isDesktopOnly": false
 }

@@ -1,6 +1,6 @@
 // 日志服务类，用于统一管理日志输出
 export class Logger {
-    private static isDevelopment = process.env.NODE_ENV === 'development';
+    private static isDevelopment = false; // 默认关闭调试日志
     private prefix: string;
 
     constructor(context: string) {

@@ -36,4 +36,5 @@ jobs:
           gh release create "$tag" \
             --title="$tag" \
             --draft=false \
-            main.js manifest.json styles.css LICENSE
+            --notes="Release $tag" \
+            main.js manifest.json styles.css versions.json README.md README_EN.md LICENSE

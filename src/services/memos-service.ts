@@ -1,5 +1,6 @@
 import type { MemoItem } from '../models/settings';
 import { Logger } from './logger';
+import { requestUrl, RequestUrlResponse } from 'obsidian';
 
 export interface MemosResponse {
     memos: MemoItem[];
@@ -49,20 +50,19 @@ export class MemosService {
                 const finalUrl = `${url}?${params.toString()}`;
                 this.logger.debug('请求 URL:', finalUrl);
 
-                const response = await fetch(finalUrl, {
-                    method: 'GET',
+                const response = await requestUrl({
+                    url: finalUrl,
                     headers: {
                         'Authorization': `Bearer ${this.accessToken}`,
                         'Accept': 'application/json'
                     }
                 });
 
-                if (!response.ok) {
-                    const responseText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}\n响应内容: ${responseText}`);
+                if (response.status !== 200) {
+                    throw new Error(`HTTP ${response.status}: 请求失败\n响应内容: ${response.text}`);
                 }
 
-                const responseData = await response.json();
+                const responseData = response.json;
                 this.logger.debug('API 响应数据:', responseData);
 
                 if (!responseData || !Array.isArray(responseData.memos)) {
@@ -109,20 +109,21 @@ export class MemosService {
 
             this.logger.debug(`正在下载资源: ${resourceUrl}`);
 
-            const response = await fetch(resourceUrl, {
+            const response = await requestUrl({
+                url: resourceUrl,
                 headers: {
                     'Authorization': `Bearer ${this.accessToken}`
                 }
             });
 
-            if (!response.ok) {
-                this.logger.error(`Failed to download resource: ${response.status} ${response.statusText}`);
+            if (response.status !== 200) {
+                this.logger.error(`下载资源失败: ${response.status}`);
                 return null;
             }
 
-            return await response.arrayBuffer();
+            return response.arrayBuffer;
         } catch (error) {
-            this.logger.error('Error downloading resource:', error);
+            this.logger.error('下载资源时出错:', error);
             return null;
         }
     }

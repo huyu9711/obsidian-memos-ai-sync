@@ -15,9 +15,6 @@ export class MemosSyncSettingTab extends PluginSettingTab {
         const { containerEl } = this;
         containerEl.empty();
 
-        // 基本设置
-        containerEl.createEl('h2', { text: '基本设置' });
-        
         new Setting(containerEl)
             .setName('Memos API URL')
             .setDesc('您的 Memos 服务器 API 地址')
@@ -96,8 +93,6 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                 }));
 
         // AI 功能设置
-        containerEl.createEl('h2', { text: 'AI 功能设置' });
-
         new Setting(containerEl)
             .setName('启用 AI 功能')
             .setDesc('开启或关闭 AI 增强功能')
