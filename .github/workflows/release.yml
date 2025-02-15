@@ -32,7 +32,13 @@ jobs:
         run: |
           tag="${GITHUB_REF#refs/tags/}"
           
-          # 创建 release
+          # 如果release已存在，先删除
+          gh release delete "$tag" --yes || true
+          
+          # 删除远程tag
+          git push --delete origin "$tag" || true
+          
+          # 创建新的release
           gh release create "$tag" \
             --title="$tag" \
             --draft=false \
