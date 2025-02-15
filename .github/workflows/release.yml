@@ -14,6 +14,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取所有历史记录和标签
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -35,12 +37,10 @@ jobs:
           # 如果release已存在，先删除
           gh release delete "$tag" --yes || true
           
-          # 删除远程tag
-          git push --delete origin "$tag" || true
-          
           # 创建新的release
           gh release create "$tag" \
             --title="$tag" \
             --draft=false \
             --notes="Release $tag" \
+            --target main \
             main.js manifest.json styles.css versions.json README.md README_EN.md LICENSE
