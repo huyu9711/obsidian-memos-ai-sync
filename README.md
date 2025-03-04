@@ -1,4 +1,4 @@
-# Obsidian Memos Sync Plugin
+# Memos Al Sync
 
 [English](README_EN.md) | 简体中文
 
