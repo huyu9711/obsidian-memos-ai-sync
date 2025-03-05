@@ -1,7 +1,7 @@
 import type { GenerativeModel } from '@google/generative-ai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
-import { Notice } from 'obsidian';
+import { Notice, requestUrl } from 'obsidian';
 import { Logger } from './logger';
 
 export interface AIService {
@@ -46,7 +46,7 @@ export const OLLAMA_MODELS = {
 export const MODEL_DESCRIPTIONS = {
     // Gemini Models
     'gemini-1.5-flash': '音频、图片、视频和文本',
-    'gemini-1.5-flash-8b': '音频、图片、视频���文本',
+    'gemini-1.5-flash-8b': '音频、图片、视频和文本',
     'gemini-1.5-pro': '音频、图片、视频和文本',
     'gemini-1.0-pro': '文本 (将于 2025 年 2 月 15 日弃用)',
     'text-embedding-004': '文本',
@@ -90,7 +90,7 @@ async function retryWithBackoff<T>(
             if (error instanceof Error && error.message.includes('429')) {
                 // 配额限制错误，等待更长时间
                 const delay = initialDelay * (2 ** i);
-                console.log(`配额限制，等待 ${delay}ms 后重试...`);
+                // console.log(`配额限制，等待 ${delay}ms 后重试...`);
                 await sleep(delay);
                 continue;
             }
@@ -99,7 +99,7 @@ async function retryWithBackoff<T>(
             }
             // 其他错误，继续重试
             const delay = initialDelay * (2 ** i);
-            console.log(`操作失败，等待 ${delay}ms 后重试...`);
+            // console.log(`操作失败，等待 ${delay}ms 后重试...`);
             await sleep(delay);
         }
     }
@@ -376,7 +376,8 @@ class OllamaService implements AIService {
 
     private async generateCompletion(prompt: string): Promise<string> {
         try {
-            const response = await fetch(`${this.baseUrl}/api/generate`, {
+            const response = await requestUrl({
+                url: `${this.baseUrl}/api/generate`,
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -393,14 +394,14 @@ class OllamaService implements AIService {
                 })
             });
 
-            if (!response.ok) {
+            if (response.status !== 200) {
                 throw new Error(`Ollama API error: ${response.status}`);
             }
 
-            const data = await response.json();
+            const data = response.json;
             return data.response;
         } catch (error) {
-            console.error('Ollama API error:', error);
+            this.logger.error('Ollama API error:', error);
             throw error;
         }
     }
@@ -423,7 +424,7 @@ class OllamaService implements AIService {
 
     async generateWeeklyDigest(contents: string[]): Promise<string> {
         const combinedContent = contents.join('\n---\n');
-        const prompt = `请对以下一��的内容进行总结和分析，生成一份周报。要求：
+        const prompt = `请对以下一周的内容进行总结和分析，生成一份周报。要求：
 1. 主要工作内容和成果
 2. 重要事项和进展
 3. 问题和解决方案
