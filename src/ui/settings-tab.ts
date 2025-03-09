@@ -17,9 +17,9 @@ export class MemosSyncSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Memos API URL')
-            .setDesc('您的 Memos 服务器 API 地址')
+            .setDesc('您的 Memos 服务器 API 地址,格式如：https://memose.com/api/v1 ')
             .addText(text => text
-                .setPlaceholder('例如：https://demo.usememos.com/api/v1')
+                .setPlaceholder('https://x.com/api/v1')
                 .setValue(this.plugin.settings.memosApiUrl)
                 .onChange(async (value) => {
                     this.plugin.settings.memosApiUrl = value;

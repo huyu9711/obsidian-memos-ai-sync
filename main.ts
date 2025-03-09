@@ -56,20 +56,24 @@ export default class MemosSyncPlugin extends Plugin {
                     ? this.settings.ai.ollamaBaseUrl
                     : this.settings.ai.apiKey;
 
+                // 检查是否配置了 API 密钥（对于非 Ollama 服务）
                 if (this.settings.ai.modelType !== 'ollama' && !apiKey) {
-                    throw new Error(`未配置 ${this.settings.ai.modelType.toUpperCase()} API 密钥`);
+                    // 不抛出错误，而是使用空服务
+                    aiService = createDummyAIService();
+                    this.statusService.setWarning('AI 服务需要配置 API 密钥，请在设置中完成配置');
+                } else {
+                    // 有 API 密钥，尝试初始化服务
+                    aiService = createAIService(
+                        this.settings.ai.modelType,
+                        apiKey,
+                        modelName
+                    );
                 }
-                    
-                aiService = createAIService(
-                    this.settings.ai.modelType,
-                    apiKey,
-                    modelName
-                );
             } catch (error) {
                 console.error('Failed to initialize AI service:', error);
-                this.statusService.setError('AI 服务初始化失败，AI 功能将被禁用');
-                this.settings.ai.enabled = false;
-                this.saveSettings();
+                this.statusService.setWarning('AI 服务初始化失败，请检查配置');
+                // 不禁用 AI 功能，使用空服务
+                aiService = createDummyAIService();
             }
         }
 

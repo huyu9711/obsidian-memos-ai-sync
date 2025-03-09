@@ -1,6 +1,6 @@
 import { Notice, setIcon } from 'obsidian';
 
-type SyncStatus = 'idle' | 'syncing' | 'error' | 'success';
+type SyncStatus = 'idle' | 'syncing' | 'error' | 'success' | 'warning';
 
 export class StatusService {
     private statusBarItem: HTMLElement;
@@ -34,6 +34,11 @@ export class StatusService {
             case 'success': {
                 icon = 'check-circle';
                 text = '同步完成';
+                break;
+            }
+            case 'warning': {
+                icon = 'alert-triangle';
+                text = '警告';
                 break;
             }
             default: {
@@ -86,5 +91,18 @@ export class StatusService {
     setIdle() {
         this.currentStatus = 'idle';
         this.updateStatusBar();
+    }
+
+    setWarning(message: string) {
+        this.currentStatus = 'warning';
+        this.updateStatusBar();
+        new Notice(message, 5000);
+        console.warn('Warning:', message);
+        
+        // 5秒后重置状态为空闲
+        setTimeout(() => {
+            this.currentStatus = 'idle';
+            this.updateStatusBar();
+        }, 5000);
     }
 } 

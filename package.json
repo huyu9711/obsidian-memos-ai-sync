@@ -1,6 +1,6 @@
 {
   "name": "obsidian-memos-sync",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Sync Memos content to Obsidian",
   "main": "main.js",
   "scripts": {
