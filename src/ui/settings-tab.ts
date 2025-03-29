@@ -189,7 +189,7 @@ export class MemosSyncSettingTab extends PluginSettingTab {
 
     private displayModelOptions(containerEl: HTMLElement) {
         const modelType = this.plugin.settings.ai.modelType;
-        
+
         if (modelType === 'gemini') {
             new Setting(containerEl)
                 .setName('Gemini 模型')
@@ -199,11 +199,11 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                     for (const [displayName, modelId] of Object.entries(GEMINI_MODELS)) {
                         dropdown.addOption(modelId, `${displayName} - ${MODEL_DESCRIPTIONS[modelId]}`);
                     }
-                    
+
                     // 设置当前值或默认值
                     const currentModel = this.plugin.settings.ai.modelName || GEMINI_MODELS['Gemini 1.5 Flash'];
                     dropdown.setValue(currentModel);
-                    
+
                     dropdown.onChange(async (value) => {
                         this.plugin.settings.ai.modelName = value;
                         await this.plugin.saveSettings();
@@ -234,11 +234,11 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                     for (const [displayName, modelId] of Object.entries(OPENAI_MODELS)) {
                         dropdown.addOption(modelId, `${displayName} - ${MODEL_DESCRIPTIONS[modelId]}`);
                     }
-                    
+
                     // 设置当前值或默认值
                     const currentModel = this.plugin.settings.ai.modelName || OPENAI_MODELS['GPT-4o'];
                     dropdown.setValue(currentModel);
-                    
+
                     dropdown.onChange(async (value) => {
                         this.plugin.settings.ai.modelName = value;
                         await this.plugin.saveSettings();
@@ -259,7 +259,19 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                             this.plugin.settings.ai.customModelName = value;
                             await this.plugin.saveSettings();
                         }));
+
+				new Setting(containerEl)
+					.setName('OpenAI API 基础链接')
+					.setDesc('如果使用自定义 API 服务，请设置对应的基础链接')
+					.addText(text => text
+						.setPlaceholder('https://api.openai.com/v1')
+						.setValue(this.plugin.settings.ai.openaiBaseUrl || 'https://api.openai.com/v1')
+						.onChange(async (value) => {
+							this.plugin.settings.ai.openaiBaseUrl = value;
+							await this.plugin.saveSettings();
+						}));
             }
+
         } else if (modelType === 'claude') {
             new Setting(containerEl)
                 .setName('Claude 模型')
@@ -269,10 +281,10 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                         .addOption('claude-3-sonnet-20240229', 'Claude 3 Sonnet')
                         .addOption('claude-3-haiku-20240307', 'Claude 3 Haiku')
                         .addOption('custom', '自定义模型 - 自定义模型名称');
-                    
+
                     const currentModel = this.plugin.settings.ai.modelName || 'claude-3-opus-20240229';
                     dropdown.setValue(currentModel);
-                    
+
                     dropdown.onChange(async (value) => {
                         this.plugin.settings.ai.modelName = value;
                         await this.plugin.saveSettings();
@@ -316,12 +328,12 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                             dropdown.addOption(modelId, `${displayName} - ${MODEL_DESCRIPTIONS[modelId] || modelId}`);
                         }
                     }
-                    
+
                     // 设置当前值或默认值
                     const defaultModel = OLLAMA_MODELS['Llama 2'] as string;
                     const currentModel = this.plugin.settings.ai.modelName || defaultModel;
                     dropdown.setValue(currentModel);
-                    
+
                     dropdown.onChange(async (value) => {
                         this.plugin.settings.ai.modelName = value;
                         await this.plugin.saveSettings();
@@ -344,4 +356,4 @@ export class MemosSyncSettingTab extends PluginSettingTab {
             }
         }
     }
-} 
+}

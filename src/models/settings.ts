@@ -28,9 +28,10 @@ export interface MemoItem {
 export interface AISettings {
     enabled: boolean;
     modelType: AIModelType;
+    apiKey: string;
     modelName: string;
     customModelName: string;
-    apiKey: string;
+    openaiBaseUrl: string;
     ollamaBaseUrl: string;
     weeklyDigest: boolean;
     autoTags: boolean;
@@ -60,13 +61,14 @@ export const DEFAULT_SETTINGS: MemosPluginSettings = {
     ai: {
         enabled: false,
         modelType: 'openai',
+        apiKey: '',
         modelName: 'gpt-4o',
         customModelName: '',
-        apiKey: '',
+        openaiBaseUrl: 'https://api.openai.com/v1',
         ollamaBaseUrl: 'http://localhost:11434',
         weeklyDigest: true,
         autoTags: true,
         intelligentSummary: true,
         summaryLanguage: 'zh'
     }
-}; 
+};

@@ -52,7 +52,7 @@ export const MODEL_DESCRIPTIONS = {
     'text-embedding-004': '文本',
     'aqa': '文本',
     'custom': '自定义模型',
-    
+
     // OpenAI Models
     'gpt-4o': '标准版 GPT-4o，强大的推理能力',
     'gpt-4o-2024-11-20': '11月快照版本，稳定可靠',
@@ -159,7 +159,7 @@ class GeminiService implements AIService {
 4. 下周计划和展望
 
 内容：\n${combinedContent}`;
-        
+
         return retryWithBackoff(async () => {
             const result = await this.model.generateContent(prompt);
             const response = await result.response;
@@ -196,7 +196,7 @@ export class OpenAIService implements AIService {
         const iv = await this.generateIV();
         const key = await this.generateKey();
         const encodedText = new TextEncoder().encode(apiKey);
-        
+
         const encryptedData = await crypto.subtle.encrypt(
             {
                 name: 'AES-GCM',
@@ -260,7 +260,7 @@ export class OpenAIService implements AIService {
         this.logger = new Logger('OpenAIService');
     }
 
-    async initialize(apiKey?: string, modelName?: string): Promise<void> {
+    async initialize(apiKey?: string, modelName?: string, openaiBaseUrl?: string): Promise<void> {
         try {
             if (!apiKey) {
                 throw new Error('API 密钥不能为空');
@@ -273,10 +273,10 @@ export class OpenAIService implements AIService {
 
             // 加密存储 API 密钥
             const encryptedKey = await this.encryptApiKey(apiKey);
-            
+
             this.client = new OpenAI({
                 apiKey: await this.decryptApiKey(encryptedKey),
-                baseURL: 'https://api.openai.com/v1',
+                baseURL: openaiBaseUrl,
                 dangerouslyAllowBrowser: true
             });
 
@@ -439,9 +439,9 @@ class OllamaService implements AIService {
     }
 }
 
-export function createAIService(type: string, apiKey: string, modelName?: string): AIService {
+export function createAIService(type: string, apiKey: string, modelName?: string, openaiBaseUrl?: string): AIService {
     const serviceType = type.toLowerCase();
-    
+
     switch (serviceType) {
         case 'gemini': {
             const service = new GeminiService(apiKey, modelName);
@@ -450,7 +450,7 @@ export function createAIService(type: string, apiKey: string, modelName?: string
         }
         case 'openai': {
             const service = new OpenAIService();
-            void service.initialize(apiKey, modelName);
+            void service.initialize(apiKey, modelName, openaiBaseUrl);
             return service;
         }
         case 'ollama': {
@@ -485,4 +485,4 @@ export function createDummyAIService(): AIService {
             logger.debug('初始化空 AI 服务');
         }
     };
-} 
+}
