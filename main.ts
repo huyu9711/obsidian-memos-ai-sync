@@ -18,11 +18,11 @@ export default class MemosSyncPlugin extends Plugin {
 
     async onload() {
         await this.loadSettings();
-        
+
         // 创建状态栏项
         const statusBarItem = this.addStatusBarItem();
         this.statusService = new StatusService(statusBarItem);
-        
+
         this.initializeServices();
 
         this.addSettingTab(new MemosSyncSettingTab(this.app, this));
@@ -47,8 +47,8 @@ export default class MemosSyncPlugin extends Plugin {
         if (this.settings.ai.enabled) {
             try {
                 // 如果选择了自定义模型，使用自定义模型名称
-                const modelName = this.settings.ai.modelName === 'custom' 
-                    ? this.settings.ai.customModelName 
+                const modelName = this.settings.ai.modelName === 'custom'
+                    ? this.settings.ai.customModelName
                     : this.settings.ai.modelName;
 
                 // 对于 Ollama，使用 ollamaBaseUrl 作为 apiKey
@@ -56,17 +56,15 @@ export default class MemosSyncPlugin extends Plugin {
                     ? this.settings.ai.ollamaBaseUrl
                     : this.settings.ai.apiKey;
 
-                // 检查是否配置了 API 密钥（对于非 Ollama 服务）
                 if (this.settings.ai.modelType !== 'ollama' && !apiKey) {
-                    // 不抛出错误，而是使用空服务
                     aiService = createDummyAIService();
                     this.statusService.setWarning('AI 服务需要配置 API 密钥，请在设置中完成配置');
                 } else {
-                    // 有 API 密钥，尝试初始化服务
                     aiService = createAIService(
                         this.settings.ai.modelType,
                         apiKey,
-                        modelName
+                        modelName,
+                        this.settings.ai.openaiBaseUrl,
                     );
                 }
             } catch (error) {
@@ -86,7 +84,7 @@ export default class MemosSyncPlugin extends Plugin {
             this.app.vault,
             this.settings.syncDirectory
         );
-        
+
         this.fileService = new FileService(
             this.app.vault,
             this.settings.syncDirectory,
