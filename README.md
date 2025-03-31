@@ -1,5 +1,10 @@
 # Memos Al Sync
 
+# 版本更新
+
+· 2025.03.31 支持兼容OpenAI API 的语言大模型调用。开启AI功能--选择OpenAI--选择自定义模型--输入基础url。
+· 2025.02.17 首次发布 
+
 [English](README_EN.md) | 简体中文
 
 将 Memos 内容同步到 Obsidian 的插件，提供无缝集成体验。
