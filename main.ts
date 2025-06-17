@@ -79,6 +79,7 @@ export default class MemosSyncPlugin extends Plugin {
             aiService || createDummyAIService(),
             this.settings.ai.enabled && aiService !== null,
             this.settings.ai.intelligentSummary,
+            this.settings.ai.autoTitle,
             this.settings.ai.autoTags,
             this.settings.ai.summaryLanguage,
             this.app.vault,
@@ -107,8 +108,8 @@ export default class MemosSyncPlugin extends Plugin {
 
             let syncCount = 0;
             for (const memo of memos) {
-                const processedContent = await this.contentService.processMemoContent(memo);
-                const processedMemo = { ...memo, content: processedContent };
+                const result = await this.contentService.processMemoContent(memo);
+                const processedMemo = { ...memo, content: result.content, title: result.title };
                 await this.fileService.saveMemoToFile(processedMemo);
                 syncCount++;
                 this.statusService.updateProgress(syncCount);

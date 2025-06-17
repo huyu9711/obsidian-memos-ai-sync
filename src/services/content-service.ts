@@ -7,6 +7,7 @@ export class ContentService {
         private aiService: AIService,
         private aiEnabled: boolean,
         private enableSummary: boolean,
+        private enableTitle: boolean,
         private enableTags: boolean,
         private summaryLanguage: string,
         private vault: Vault,
@@ -23,11 +24,11 @@ export class ContentService {
         return cleanContent.length >= 10;
     }
 
-    async processMemoContent(memo: MemoItem): Promise<string> {
+    async processMemoContent(memo: MemoItem): Promise<{ content: string; title: string }> {
         const { content } = memo;
-        const title = this.extractTitle(content);
+        let title = this.extractTitle(content);
         const mainContent = title ? content.slice(title.length).trim() : content;
-        let processedContent = title ? `# ${title}\n\n` : '';
+        let processedContent = '';
 
         if (this.aiEnabled && this.isContentSuitableForAI(content)) {
             if (this.enableSummary) {
@@ -43,10 +44,15 @@ export class ContentService {
                     processedContent += `> [!info]- 相关标签\n> ${tags.map(tag => `#${tag}`).join(' ')}\n\n`;
                 }
             }
+
+            if (this.enableTitle) {
+                title = await this.aiService.generateTitle(content);
+            }
         }
 
+        processedContent += `# ${title}\n\n`;
         processedContent += mainContent;
-        return processedContent.trim();
+        return { content: processedContent.trim(), title: title || '' };
     }
 
     private extractTitle(content: string): string | null {

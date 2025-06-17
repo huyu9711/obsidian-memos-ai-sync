@@ -150,7 +150,7 @@ export class FileService {
                 : this.sanitizeFileName(memo.name.replace('memos/', ''));
             
             const timeStr = this.formatDateTime(date, 'filename');
-            const fileName = this.sanitizeFileName(`${contentPreview} (${timeStr}).md`);
+            const fileName = this.sanitizeFileName(`${memo.title} (${timeStr}).md`);
             const filePath = `${monthDir}/${fileName}`;
             
             let content = memo.content || '';

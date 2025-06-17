@@ -7,6 +7,7 @@ import { Logger } from './logger';
 export interface AIService {
     generateSummary(content: string, language?: string): Promise<string>;
     generateTags(content: string): Promise<string[]>;
+    generateTitle(content: string): Promise<string>;
     generateWeeklyDigest(contents: string[]): Promise<string>;
     initialize(apiKey: string, modelName?: string): Promise<void>;
 }
@@ -134,6 +135,15 @@ class GeminiService implements AIService {
 
     async generateSummary(content: string, language = 'zh'): Promise<string> {
         const prompt = `请用${language === 'zh' ? '中文' : 'English'}总结以下内容的要点：\n\n${content}`;
+        return retryWithBackoff(async () => {
+            const result = await this.model.generateContent(prompt);
+            const response = await result.response;
+            return response.text().trim();
+        });
+    }
+
+    async generateTitle(content: string, language = 'zh'): Promise<string> {
+        const prompt = `请用${language === 'zh' ? '中文' : 'English'}为以下内容直接生成一个标题提供出来，仅仅需要标题本身，不要带标题符号：\n\n${content}`;
         return retryWithBackoff(async () => {
             const result = await this.model.generateContent(prompt);
             const response = await result.response;
@@ -311,6 +321,19 @@ export class OpenAIService implements AIService {
         });
     }
 
+    async generateTitle(content: string, language = 'zh'): Promise<string> {
+        const prompt = `请用${language === 'zh' ? '中文' : 'English'}为以下内容直接生成一个标题提供出来，仅仅需要标题本身，不要带标题符号：\n\n${content}`;
+        return retryWithBackoff(async () => {
+            const response = await this.client.chat.completions.create({
+                model: this.model,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.7,
+                max_tokens: 500
+            });
+            return response.choices[0]?.message?.content?.trim() || '';
+        });
+    }
+
     async generateTags(content: string): Promise<string[]> {
         const prompt = `请为以下内容生成3-5个相关标签（不要带#号）：\n\n${content}`;
         return retryWithBackoff(async () => {
@@ -414,6 +437,14 @@ class OllamaService implements AIService {
         });
     }
 
+    async generateTitle(content: string, language = 'zh'): Promise<string> {
+        const prompt = `请用${language === 'zh' ? '中文' : 'English'}为以下内容直接生成一个标题提供出来，仅仅需要标题本身，不要带标题符号：\n\n${content}`;
+        return retryWithBackoff(async () => {
+            const response = await this.generateCompletion(prompt);
+            return response.trim();
+        });
+    }
+
     async generateTags(content: string): Promise<string[]> {
         const prompt = `请为以下内容生成3-5个相关标签（不要带#号）：\n\n${content}`;
         return retryWithBackoff(async () => {
@@ -470,6 +501,10 @@ export function createDummyAIService(): AIService {
     const logger = new Logger('DummyAIService');
     return {
         async generateSummary(): Promise<string> {
+            logger.debug('使用空 AI 服务');
+            return '';
+        },
+        async generateTitle(): Promise<string> {
             logger.debug('使用空 AI 服务');
             return '';
         },

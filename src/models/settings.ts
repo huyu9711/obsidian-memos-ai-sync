@@ -5,6 +5,7 @@ export type AIModelType = 'openai' | 'gemini' | 'claude' | 'ollama';
 export interface MemoItem {
     name: string;
     uid: string;
+    title: string;
     content: string;
     visibility: string;
     createTime: string;
@@ -35,6 +36,7 @@ export interface AISettings {
     ollamaBaseUrl: string;
     weeklyDigest: boolean;
     autoTags: boolean;
+    autoTitle: boolean;
     intelligentSummary: boolean;
     summaryLanguage: 'zh' | 'en' | 'ja' | 'ko';
 }
@@ -68,6 +70,7 @@ export const DEFAULT_SETTINGS: MemosPluginSettings = {
         ollamaBaseUrl: 'http://localhost:11434',
         weeklyDigest: true,
         autoTags: true,
+        autoTitle: true,
         intelligentSummary: true,
         summaryLanguage: 'zh'
     }

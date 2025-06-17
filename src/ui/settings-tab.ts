@@ -152,6 +152,16 @@ export class MemosSyncSettingTab extends PluginSettingTab {
                     }));
 
             new Setting(containerEl)
+                .setName('智能标题')
+                .setDesc('自动生成标题')
+                .addToggle(toggle => toggle
+                    .setValue(this.plugin.settings.ai.autoTitle)
+                    .onChange(async (value) => {
+                        this.plugin.settings.ai.autoTitle = value;
+                        await this.plugin.saveSettings();
+                    }));
+
+            new Setting(containerEl)
                 .setName('自动标签')
                 .setDesc('根据内容自动生成标签')
                 .addToggle(toggle => toggle
